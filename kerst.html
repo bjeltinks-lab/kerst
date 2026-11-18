@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kerst Lootjes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&amp;family=DM+Sans:wght@400;500;600&amp;family=Caveat:wght@600&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#16030A}
+body{display:flex;align-items:center;justify-content:center;overflow:hidden}
+#app{width:390px;height:844px;flex:none;transform-origin:50% 50%;border-radius:36px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+@media (max-width:500px){#app{border-radius:0;box-shadow:none}}
+a{color:#FBEFE6}
+input::placeholder{color:#D9B8AE;opacity:.85}
+input:focus{outline:2px solid #E8B98A;outline-offset:1px}
+button:focus-visible{outline:2px solid #E8B98A;outline-offset:2px}
+
+@keyframes pop{0%{opacity:0;transform:translateY(40px) scale(.6) rotate(-6deg)}60%{opacity:1;transform:translateY(-6px) scale(1.06) rotate(1deg)}100%{opacity:1;transform:none}}
+@keyframes fadeup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes shakeA{0%,100%{transform:rotate(0)}15%{transform:rotate(-9deg) translateX(-8px)}30%{transform:rotate(8deg) translateX(8px)}45%{transform:rotate(-7deg)}60%{transform:rotate(6deg)}75%{transform:rotate(-3deg)}}
+@keyframes shakeB{0%,100%{transform:rotate(0)}15%{transform:rotate(9deg) translateX(8px)}30%{transform:rotate(-8deg) translateX(-8px)}45%{transform:rotate(7deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+@keyframes jiggle{0%,100%{translate:0 0}25%{translate:2px -6px}50%{translate:-3px 2px}75%{translate:3px -3px}}
+@keyframes jiggleB{0%,100%{translate:0 0}25%{translate:-2px -5px}50%{translate:3px 3px}75%{translate:-3px -2px}}
+@keyframes popOut{0%{opacity:0;transform:translateY(-140px) scale(.2) rotate(-30deg)}55%{opacity:1;transform:translateY(16px) scale(1.1) rotate(5deg)}100%{opacity:1;transform:none}}
+@keyframes rays{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes hint{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
+@keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fall{from{transform:translateY(-30px)}to{transform:translateY(880px)}}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(.6)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(60px,80px) scale(1.25)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{transform:scale(.94);opacity:.85}50%{transform:scale(1.04);opacity:1}}
+@keyframes swing{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes rise{0%{opacity:0;transform:translateY(40px) scale(.45);filter:brightness(.6)}60%{opacity:1}100%{opacity:1;transform:translateY(-6px) scale(1.25);filter:brightness(1)}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -8px}}
+@keyframes lotshadow{0%{opacity:.9;transform:scale(1.1)}100%{opacity:.35;transform:scale(.6)}}
+@keyframes unfold{0%{opacity:0;transform:rotateX(-88deg) scale(.5)}60%{opacity:1;transform:rotateX(12deg) scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes lotbob{0%,100%{transform:translate3d(0,0,0) rotateZ(-2deg)}50%{transform:translate3d(0,-10px,0) rotateZ(2deg)}}
+@keyframes cardin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+import { html, render, Component } from 'https://unpkg.com/htm@3.1.1/preact/standalone.module.js';
+
+class App extends Component {
+  constructor(p) {
+    super(p);
+    this.init = { screen: 'login', vals: ['Lego Botanicals bloemenset', 'Warme wollen sokken', 'Boek: De zeven zussen', 'Bioscoopbon', '', '', '', '', '', ''], step: 0, count: 0, revealed: false, phase: 'shake', picked: '', exclude: '', sheet: false };
+    this.timers = [];
+    this.state = Object.assign({}, this.init);
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  render() { const v = this.renderVals(); return html`
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(120% 75% at 50% 0%, #6B1424 0%, #3A0A14 55%, #22050B 100%); font-family: 'DM Sans', sans-serif; color: #FBEFE6">
+<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden"><span style="position: absolute; left: 18px; top: 0; width: 5px; height: 5px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 9s linear -1s infinite"></span><span style="position: absolute; left: 62px; top: 0; width: 3px; height: 3px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 12s linear -6s infinite"></span><span style="position: absolute; left: 108px; top: 0; width: 6px; height: 6px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 10s linear -3s infinite"></span><span style="position: absolute; left: 150px; top: 0; width: 3px; height: 3px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 8s linear -5s infinite"></span><span style="position: absolute; left: 196px; top: 0; width: 4px; height: 4px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 11s linear -2s infinite"></span><span style="position: absolute; left: 238px; top: 0; width: 6px; height: 6px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 13s linear -8s infinite"></span><span style="position: absolute; left: 284px; top: 0; width: 3px; height: 3px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 9s linear -4s infinite"></span><span style="position: absolute; left: 330px; top: 0; width: 5px; height: 5px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 10s linear -7s infinite"></span><span style="position: absolute; left: 368px; top: 0; width: 4px; height: 4px; border-radius: 50%; background: #E8B98A; opacity: 0.5; animation: fall 12s linear -9s infinite"></span></div>
+
+${v.isLogin ? html`
+<div style="position: absolute; inset: 0; padding: 72px 28px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; animation: fadein .4s both">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center">
+    <div aria-hidden="true" style="width: 112px; height: 112px"><svg width="100%" height="100%" viewBox="0 0 200 200" fill="none"><g style="transform-origin: 100px 100px; animation: swing 4s ease-in-out infinite"><g stroke="#E8B98A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M100 100 C70 56 24 58 30 92 C36 124 78 114 100 100 Z"></path><path d="M100 100 C130 56 176 58 170 92 C164 124 122 114 100 100 Z"></path><path d="M95 105 L68 176"></path><path d="M105 105 L132 176"></path></g><circle cx="100" cy="100" r="12" fill="#E8B98A"></circle></g></svg></div>
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #E8B98A">Familie · Kerst 2026</div>
+    <h1 style="margin: 0; font-size: 46px; line-height: 1; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Lootjes <span style="font-style: italic; color: #E8B98A">trekken</span></h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #D9B8AE; max-width: 280px">Log in met je naam en wachtwoord om je lootje te trekken.</p>
+  </div>
+  <form style="display: flex; flex-direction: column; gap: 14px; padding: 22px; background: rgba(0,0,0,.22); border: 1px solid rgba(251,239,230,.18); border-radius: 28px; ">
+    <label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; color: #FBEFE6">Naam<input type="text" value="Leonie" style="height: 50px; border-radius: 14px; border: 1px solid rgba(251,239,230,.18); background: rgba(0,0,0,.25); color: #FBEFE6; padding: 0 14px; font: 500 16px 'DM Sans', sans-serif; box-sizing: border-box; width: 100%" /></label>
+    <label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600; color: #FBEFE6">Wachtwoord<input type="password" value="kerst123" style="height: 50px; border-radius: 14px; border: 1px solid rgba(251,239,230,.18); background: rgba(0,0,0,.25); color: #FBEFE6; padding: 0 14px; font: 500 16px 'DM Sans', sans-serif; box-sizing: border-box; width: 100%" /></label>
+    <button type="button" onClick=${v.login} style="height: 54px; border: 0; border-radius: 999px; background: #FBEFE6; color: #3A0A14; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; ; margin-top: 6px">Inloggen</button>
+  </form>
+  <p style="margin: auto 0 0; text-align: center; font-size: 13px; color: #D9B8AE">Wachtwoord vergeten? Vraag het aan Benjamin.</p>
+</div>
+` : null}
+
+${v.isWelkom ? html`
+<div style="position: absolute; inset: 0; padding: 60px 28px 36px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; text-align: center">
+  <div aria-hidden="true" style="width: 220px; height: 220px; animation: pop .9s cubic-bezier(.2,.9,.3,1.3) .1s both"><svg width="100%" height="100%" viewBox="0 0 200 200" fill="none"><g style="transform-origin: 100px 100px; animation: swing 4s ease-in-out infinite"><g stroke="#E8B98A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M100 100 C70 56 24 58 30 92 C36 124 78 114 100 100 Z"></path><path d="M100 100 C130 56 176 58 170 92 C164 124 122 114 100 100 Z"></path><path d="M95 105 L68 176"></path><path d="M105 105 L132 176"></path></g><circle cx="100" cy="100" r="12" fill="#E8B98A"></circle></g></svg></div>
+  <div style="margin-top: 26px; font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #E8B98A; animation: fadeup .6s ease-out .3s both">Kerst 2026</div>
+  <h1 style="margin: 12px 0 0; font-size: 70px; line-height: .95; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em; display: flex; flex-direction: column; align-items: center">
+    <span style="animation: pop .8s cubic-bezier(.2,.9,.3,1.4) .5s both">Welkom,</span>
+    <span style="font-style: italic; color: #E8B98A; animation: pop .8s cubic-bezier(.2,.9,.3,1.4) .8s both">Leonie</span>
+  </h1>
+  <p style="margin: 22px 0 0; font-size: 16px; line-height: 1.55; color: #D9B8AE; max-width: 300px; animation: fadeup .6s ease-out 1.3s both">Fijn dat je er bent. Zet eerst minimaal 5 wensen op je verlanglijstje, dan weet wie jou trekt wat je leuk vindt.</p>
+  <button type="button" onClick=${v.toWens} style="height: 54px; border: 0; border-radius: 999px; background: #FBEFE6; color: #3A0A14; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; ; margin-top: auto; width: 100%; animation: fadeup .6s ease-out 1.6s both">Maak mijn verlanglijstje
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+  </button>
+</div>
+` : null}
+
+${v.isWens ? html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; animation: fadein .35s both">
+  <div style="display: flex; align-items: center; gap: 16px">
+    <button type="button" aria-label="Foto toevoegen" style="flex: none; width: 76px; height: 76px; border-radius: 50%; border: 2px dashed #E8B98A; background: rgba(0,0,0,.22); color: #E8B98A; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>
+    </button>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <div style="font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #E8B98A">Jouw profiel</div>
+      <h1 style="margin: 0; font-size: 30px; line-height: 1.05; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Verlanglijstje</h1>
+      <div style="font-size: 13px; color: #D9B8AE">Tik op de cirkel voor je foto</div>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600"><span>Ingevuld · minimaal 5</span><span style="color: #E8B98A">${v.filled} / 10</span></div>
+    <div style="height: 6px; border-radius: 99px; background: rgba(251,239,230,.18); overflow: hidden"><div style="height: 100%; border-radius: 99px; background: #FBEFE6; transition: width .3s; width: ${v.pct}"></div></div>
+  </div>
+  <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px">
+    ${v.wishes.map((item) => html`
+      <label style="flex: none; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 6px 0 12px; box-sizing: border-box; background: rgba(0,0,0,.22); border: 1px solid rgba(251,239,230,.18); border-radius: 28px; ">
+        <span style="flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(251,239,230,.18); color: #E8B98A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">${item.n}</span>
+        <input type="text" defaultValue=${item.v} onInput=${item.set} placeholder="Wens ${item.n}" aria-label="Wens ${item.n}" style="flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: #FBEFE6; font: 500 15px 'DM Sans', sans-serif; padding: 0 6px" />
+      </label>
+    `)}
+  </div>
+  <button type="button" onClick=${v.saveWens} aria-disabled=${v.wishDisabled} style="height: 54px; border: 0; border-radius: 999px; background: #FBEFE6; color: #3A0A14; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; ; flex: none; transition: opacity .2s; opacity: ${v.wishOpacity}">${v.wishLabel}</button>
+</div>
+` : null}
+
+${v.isTour ? html`
+<div style="position: absolute; inset: 0; animation: fadein .35s both">
+  <div aria-hidden="true" style="position: absolute; inset: 0">
+    <div style="position: absolute; left: 24px; right: 24px; top: 52px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 22px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Lootjes</span><span style="height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid rgba(251,239,230,.18); font-size: 12px; font-weight: 600; display: flex; align-items: center">Leonie</span></div>
+    <div style="position: absolute; left: 0; top: 0; width: 390px; height: 460px; perspective: 900px; perspective-origin: 50% 55%">
+      <div style="position: absolute; left: 195px; top: 262px; width: 0; height: 0; transform-style: preserve-3d; transform: translateY(0px) rotateX(-14deg) scale(.72)">
+        <span style="position: absolute; left: 0; top: 0; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; transform: translateY(162px) rotateX(90deg); background: radial-gradient(circle, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 62%)"></span>
+        <span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-170px) rotateX(90deg); border: 3px solid rgba(255,240,228,.5); background: radial-gradient(circle, rgba(255,240,228,0) 86%, rgba(255,240,228,.14) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-164px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-158px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-152px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-146px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-140px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 154px; height: 154px; margin: -77px 0 0 -77px; border-radius: 50%; box-sizing: border-box; transform: translateY(-135px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 178px; height: 178px; margin: -89px 0 0 -89px; border-radius: 50%; box-sizing: border-box; transform: translateY(-130px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 202px; height: 202px; margin: -101px 0 0 -101px; border-radius: 50%; box-sizing: border-box; transform: translateY(-125px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 222px; height: 222px; margin: -111px 0 0 -111px; border-radius: 50%; box-sizing: border-box; transform: translateY(-120px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 238px; height: 238px; margin: -119px 0 0 -119px; border-radius: 50%; box-sizing: border-box; transform: translateY(-115px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 250px; height: 250px; margin: -125px 0 0 -125px; border-radius: 50%; box-sizing: border-box; transform: translateY(-110px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 258px; height: 258px; margin: -129px 0 0 -129px; border-radius: 50%; box-sizing: border-box; transform: translateY(-105px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-100px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-90px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-70px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-50px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-30px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-10px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(10px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(30px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(50px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(70px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(90px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(110px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(130px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 252px; height: 252px; margin: -126px 0 0 -126px; border-radius: 50%; box-sizing: border-box; transform: translateY(146px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 236px; height: 236px; margin: -118px 0 0 -118px; border-radius: 50%; box-sizing: border-box; transform: translateY(151px) rotateX(90deg); border: 2px solid rgba(255,240,228,.35); background: radial-gradient(circle at 45% 40%, rgba(255,240,228,.16), rgba(255,240,228,.05) 70%)"></span>
+        <span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%); transform: translate3d(-60px,136px,30px) rotateY(-25deg) rotateX(56deg)">Benjamin</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #EDD0A8 0%, #DDB98D 47%, #C29A6C 50%, #E6C69B 53%, #D6AF80 100%); transform: translate3d(10px,138px,52px) rotateY(10deg) rotateX(60deg)">Nikola</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FBE1DC 0%, #F1C8C1 47%, #D9A9A1 50%, #F7D6D0 53%, #EBC0B8 100%); transform: translate3d(70px,134px,20px) rotateY(30deg) rotateX(52deg)">Leonie</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%); transform: translate3d(-30px,128px,-30px) rotateY(-15deg) rotateX(62deg)">Dino</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #EDD0A8 0%, #DDB98D 47%, #C29A6C 50%, #E6C69B 53%, #D6AF80 100%); transform: translate3d(50px,126px,-40px) rotateY(20deg) rotateX(58deg)">Harry</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FBE1DC 0%, #F1C8C1 47%, #D9A9A1 50%, #F7D6D0 53%, #EBC0B8 100%); transform: translate3d(-82px,130px,-14px) rotateY(35deg) rotateX(50deg)">Francisco</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%); transform: translate3d(0px,120px,4px) rotateY(-5deg) rotateX(64deg)">Chaimae</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #EDD0A8 0%, #DDB98D 47%, #C29A6C 50%, #E6C69B 53%, #D6AF80 100%); transform: translate3d(30px,112px,62px) rotateY(-30deg) rotateX(55deg)">Estelle</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FBE1DC 0%, #F1C8C1 47%, #D9A9A1 50%, #F7D6D0 53%, #EBC0B8 100%); transform: translate3d(-50px,112px,58px) rotateY(15deg) rotateX(60deg)">Digna</span><span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); background: linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%); transform: translate3d(84px,118px,-12px) rotateY(-20deg) rotateX(54deg)">Inez</span>
+        <span style="position: absolute; left: 0; top: 0; width: 13px; height: 210px; margin: -105px 0 0 -6px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.55) 30%, rgba(255,255,255,.18) 75%, rgba(255,255,255,0)); transform: translate3d(-74px, 10px, 104px) rotateY(-36deg)"></span><span style="position: absolute; left: 0; top: 0; width: 7px; height: 160px; margin: -80px 0 0 -3px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.3), rgba(255,255,255,0)); transform: translate3d(86px, 20px, 96px) rotateY(42deg)"></span>
+        <div style="position: absolute; left: 0; top: 0; transform-style: preserve-3d"><span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-176px) rotateX(90deg); border: 4px solid #A87444"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-180px) rotateX(90deg); border: 4px solid #D8A774"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-184px) rotateX(90deg); border: 4px solid #B9834F"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-188px) rotateX(90deg); border: 4px solid #E8B98A"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-192px) rotateX(90deg); background: radial-gradient(circle at 40% 38%, #FFF0D6, #E3B07C 55%, #A87444 100%); border: 2px solid #C99766"></span></div>
+      </div>
+    </div>
+    <div style="position: absolute; left: 164px; top: 408px; display: flex; gap: 10px"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #E8B98A; box-sizing: border-box"></span><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #E8B98A; box-sizing: border-box"></span><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #E8B98A; box-sizing: border-box"></span></div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 440px; height: 72px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; gap: 12px; border-radius: 28px; background: #FBEFE6; color: #3A0A14; border: 1px solid rgba(251,239,230,.18)">
+      <span style="flex: none; width: 44px; height: 44px; border-radius: 50%; background: #6B1424; color: #E8B98A; border: 2px solid #E8B98A; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 18px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">N</span>
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8A3B2A">Jij koopt voor</span><span style="font-size: 22px; line-height: 1; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Nikola</span></span>
+      <span style="font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 99px; border: 1px solid currentColor; opacity: .75">Voorbeeld</span>
+    </div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 524px; height: 52px; border-radius: 999px; border: 2px solid #E8B98A; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">Opnieuw trekken</div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; border-radius: 22px; box-shadow: 0 0 0 1600px rgba(20,3,7,.78); transition: top .55s cubic-bezier(.4,0,.2,1), left .55s cubic-bezier(.4,0,.2,1), width .55s cubic-bezier(.4,0,.2,1), height .55s cubic-bezier(.4,0,.2,1); top: ${v.spot.t}; left: ${v.spot.l}; width: ${v.spot.w}; height: ${v.spot.h}">
+    <span style="position: absolute; inset: 0; border-radius: 22px; border: 2px solid #E8B98A"></span>
+    <span style="position: absolute; inset: -6px; border-radius: 28px; border: 2px solid #E8B98A; animation: ring 1.8s ease-out infinite"></span>
+  </div>
+  <div style="position: absolute; left: 20px; right: 20px; bottom: 22px; background: #FBEFE6; color: #3A0A14; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.3)">
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #8A3B2A">Stap ${v.tNum} van 4</div>
+    <h2 style="margin: 0; font-size: 25px; line-height: 1.1; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">${v.tTitle}</h2>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; opacity: .85">${v.tBody}</p>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+      <div style="display: flex; gap: 6px">
+        ${v.tDots.map((d) => html`<span style="height: 8px; border-radius: 99px; background: #3A0A14; transition: width .3s, opacity .3s; width: ${d.w}; opacity: ${d.o}"></span>`)}
+      </div>
+      <button type="button" onClick=${v.tNext} style="height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: #3A0A14; color: #FBEFE6; font: 600 15px 'DM Sans', sans-serif; cursor: pointer">${v.tBtn}</button>
+    </div>
+  </div>
+</div>
+` : null}
+
+${v.isPot ? html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 28px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; animation: fadein .35s both">
+  <div style="align-self: stretch; display: flex; justify-content: space-between; align-items: center">
+    <span style="font-size: 22px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Lootjes</span>
+    <span style="height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid rgba(251,239,230,.18); font-size: 12px; font-weight: 600; display: flex; align-items: center">Leonie</span>
+  </div>
+  <div style="height: 34px; margin-top: 14px; display: flex; align-items: center; justify-content: center; text-align: center">
+    ${v.isOpen ? html`<div style="font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #E8B98A; animation: fadeup .6s ease-out .5s both">Jij hebt getrokken</div>` : null}
+    ${v.notOpen ? html`<p style="margin: 0; font-size: 14px; color: #D9B8AE">Alle <strong style="color: #E8B98A">10 namen</strong> zitten in de pot</p>` : null}
+  </div>
+  <div style="position: relative; width: 342px; height: 450px; flex: none; perspective: 900px; perspective-origin: 50% 45%">
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 30px; width: 342px; height: 420px; border-radius: 50%; background: radial-gradient(ellipse, rgba(232,185,138,.16) 0%, rgba(232,185,138,0) 62%)"></div>
+    <div aria-hidden="true" style="position: absolute; left: 171px; top: 240px; width: 0; height: 0; transform-style: preserve-3d; transition: transform 2.1s cubic-bezier(.65,0,.3,1); transform: ${v.cam}">
+      <div style="position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform-origin: 0 150px; animation: ${v.anim}">
+        <span style="position: absolute; left: 0; top: 0; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; transform: translateY(162px) rotateX(90deg); background: radial-gradient(circle, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 62%)"></span>
+        <span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-170px) rotateX(90deg); border: 3px solid rgba(255,240,228,.5); background: radial-gradient(circle, rgba(255,240,228,0) 86%, rgba(255,240,228,.14) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-164px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-158px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 134px; height: 134px; margin: -67px 0 0 -67px; border-radius: 50%; box-sizing: border-box; transform: translateY(-152px) rotateX(90deg); border: 1.5px solid rgba(255,240,228,.3)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-146px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 128px; height: 128px; margin: -64px 0 0 -64px; border-radius: 50%; box-sizing: border-box; transform: translateY(-140px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 154px; height: 154px; margin: -77px 0 0 -77px; border-radius: 50%; box-sizing: border-box; transform: translateY(-135px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 178px; height: 178px; margin: -89px 0 0 -89px; border-radius: 50%; box-sizing: border-box; transform: translateY(-130px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 202px; height: 202px; margin: -101px 0 0 -101px; border-radius: 50%; box-sizing: border-box; transform: translateY(-125px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 222px; height: 222px; margin: -111px 0 0 -111px; border-radius: 50%; box-sizing: border-box; transform: translateY(-120px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 238px; height: 238px; margin: -119px 0 0 -119px; border-radius: 50%; box-sizing: border-box; transform: translateY(-115px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 250px; height: 250px; margin: -125px 0 0 -125px; border-radius: 50%; box-sizing: border-box; transform: translateY(-110px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 258px; height: 258px; margin: -129px 0 0 -129px; border-radius: 50%; box-sizing: border-box; transform: translateY(-105px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-100px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-90px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-70px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-50px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-30px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(-10px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(10px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(30px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(50px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(70px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(90px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(110px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; box-sizing: border-box; transform: translateY(130px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 252px; height: 252px; margin: -126px 0 0 -126px; border-radius: 50%; box-sizing: border-box; transform: translateY(146px) rotateX(90deg); border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)"></span>
+<span style="position: absolute; left: 0; top: 0; width: 236px; height: 236px; margin: -118px 0 0 -118px; border-radius: 50%; box-sizing: border-box; transform: translateY(151px) rotateX(90deg); border: 2px solid rgba(255,240,228,.35); background: radial-gradient(circle at 45% 40%, rgba(255,240,228,.16), rgba(255,240,228,.05) 70%)"></span>
+        ${v.slips.map((s) => html`
+          <span style="position: absolute; left: 0; top: 0; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: 19px; font-weight: 600; line-height: 1; color: #3A0A14; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: opacity .6s ease; transform: ${s.tf}; background: ${s.bg}; opacity: ${s.o}; animation: ${s.anim}">${s.name}</span>
+        `)}
+        <span style="position: absolute; left: 0; top: 0; width: 110px; height: 40px; margin: -20px 0 0 -55px; border-radius: 50%; background: rgba(0,0,0,.6); filter: blur(8px); transition: opacity 1.8s ease, transform 1.8s ease; opacity: ${v.lotShadowO}; transform: translateY(149px) rotateX(90deg) scale(${v.lotShadowS})"></span>
+        ${v.showLot ? html`
+          <div style="position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform 2s cubic-bezier(.3,.7,.2,1); transform: ${v.lotT}">
+            <div style="position: absolute; left: 0; top: 0; transform-style: preserve-3d; animation: ${v.lotBob}">
+              <div style="position: absolute; left: -95px; top: 0; width: 190px; height: 58px; transform-style: preserve-3d">
+                <div style="position: absolute; inset: 0; overflow: hidden; border-radius: 0 0 3px 3px; background: linear-gradient(180deg, #FFF9F0 0%, #F6EADB 100%); box-shadow: 0 20px 34px rgba(0,0,0,.5)">
+                  <div style="position: absolute; left: 0; top: -58px; width: 190px; height: 116px; display: flex; align-items: center; justify-content: center; font-family: Caveat, cursive; font-weight: 600; font-size: 58px; color: #3A0A14">${v.picked}</div>
+                  <span style="position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(180deg, rgba(120,80,50,.22), rgba(120,80,50,0))"></span>
+                </div>
+              </div>
+              <div style="position: absolute; left: -95px; top: -58px; width: 190px; height: 58px; transform-style: preserve-3d; transform-origin: 50% 100%; transition: transform 1.1s cubic-bezier(.3,1.25,.4,1); transform: rotateX(${v.fold})">
+                <div style="position: absolute; inset: 0; overflow: hidden; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #FFF9F0 0%, #F6EADB 100%); backface-visibility: hidden; -webkit-backface-visibility: hidden">
+                  <div style="position: absolute; left: 0; top: 0; width: 190px; height: 116px; display: flex; align-items: center; justify-content: center; font-family: Caveat, cursive; font-weight: 600; font-size: 58px; color: #3A0A14">${v.picked}</div>
+                  <span style="position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: linear-gradient(0deg, rgba(120,80,50,.18), rgba(120,80,50,0))"></span>
+                </div>
+                <div style="position: absolute; inset: 0; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #F3E6D5 0%, #E9D9C4 100%); transform: rotateX(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden"></div>
+              </div>
+            </div>
+          </div>
+        ` : null}
+        <span style="position: absolute; left: 0; top: 0; width: 13px; height: 210px; margin: -105px 0 0 -6px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.55) 30%, rgba(255,255,255,.18) 75%, rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${v.glint}; transform: translate3d(-74px, 10px, 104px) rotateY(-36deg)"></span>
+        <span style="position: absolute; left: 0; top: 0; width: 5px; height: 150px; margin: -75px 0 0 -2px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.35), rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${v.glint}; transform: translate3d(-48px, 20px, 120px) rotateY(-22deg)"></span>
+        <span style="position: absolute; left: 0; top: 0; width: 7px; height: 160px; margin: -80px 0 0 -3px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.3), rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${v.glint}; transform: translate3d(86px, 20px, 96px) rotateY(42deg)"></span>
+        <div style="position: absolute; left: 0; top: 0; transform-style: preserve-3d; transition: transform 1s cubic-bezier(.5,0,.3,1), opacity .9s ease .2s; transform: ${v.lidT}; opacity: ${v.lidO}">
+          <span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-176px) rotateX(90deg); border: 4px solid #A87444"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-180px) rotateX(90deg); border: 4px solid #D8A774"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-184px) rotateX(90deg); border: 4px solid #B9834F"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-188px) rotateX(90deg); border: 4px solid #E8B98A"></span>
+<span style="position: absolute; left: 0; top: 0; width: 144px; height: 144px; margin: -72px 0 0 -72px; border-radius: 50%; box-sizing: border-box; transform: translateY(-192px) rotateX(90deg); background: radial-gradient(circle at 40% 38%, #FFF0D6, #E3B07C 55%, #A87444 100%); border: 2px solid #C99766"></span>
+        </div>
+      </div>
+    </div>
+    <button type="button" aria-label="Schud de pot" onClick=${v.shake} style="position: absolute; left: 41px; top: 20px; width: 260px; height: 420px; padding: 0; border: 0; border-radius: 40px; background: transparent; cursor: pointer; pointer-events: ${v.shakePE}"></button>
+  </div>
+  ${v.notOpen ? html`
+    <div style="display: flex; flex-direction: column; align-items: center; transition: opacity .6s; opacity: ${v.uiO}">
+      <div style="display: flex; gap: 12px">
+        ${v.dots.map((d) => html`<span style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid #E8B98A; box-sizing: border-box; transition: background .2s; background: ${d.bg}"></span>`)}
+      </div>
+      <p style="margin: 12px 0 0; font-size: 16px; font-weight: 600; text-align: center; animation: hint 1.6s ease-in-out infinite">${v.hint}</p>
+    </div>
+  ` : null}
+  ${v.isOpen ? html`
+    <button type="button" onClick=${v.toProfiel} style="height: 54px; border: 0; border-radius: 999px; background: #FBEFE6; color: #3A0A14; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-top: auto; width: 100%; animation: fadeup .6s ease-out 1s both">Bekijk verlanglijstje van ${v.picked}</button>
+  ` : null}
+</div>
+` : null}
+
+${v.isProfiel ? html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; animation: fadein .35s both">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <span style="font-size: 22px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Lootjes</span>
+    <span style="height: 30px; padding: 0 10px; border-radius: 99px; border: 1px solid rgba(251,239,230,.18); font-size: 12px; display: flex; align-items: center; gap: 6px">
+      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8B98A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+      Blijft staan bij elke login
+    </span>
+  </div>
+  <div style="border-radius: 28px; padding: 20px; display: flex; align-items: center; gap: 16px; background: #FBEFE6; color: #3A0A14; border: 1px solid rgba(251,239,230,.18); ; animation: cardin .5s ease-out both">
+    <div role="img" aria-label="Profielfoto van ${v.picked}" style="flex: none; width: 84px; height: 84px; border-radius: 50%; background: #6B1424; color: #E8B98A; border: 3px solid #E8B98A; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 36px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">${v.initial}</div>
+    <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8A3B2A">Jij koopt voor</span>
+      <span style="font-size: 38px; line-height: 1; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">${v.picked}</span>
+      <span style="font-size: 13px; opacity: .75">Getrokken op 18 november</span>
+    </div>
+  </div>
+  <h2 style="margin: 4px 0 0; font-size: 14px; font-weight: 600; color: #D9B8AE">Verlanglijstje van ${v.picked}</h2>
+  <ol style="flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+    ${v.profWishes.map((w) => html`
+      <li style="flex: none; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; box-sizing: border-box; font-size: 15px; background: rgba(0,0,0,.22); border: 1px solid rgba(251,239,230,.18); border-radius: 28px; ">
+        <span style="flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(251,239,230,.18); color: #E8B98A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">${w.n}</span>${w.t}
+      </li>
+    `)}
+  </ol>
+  <button type="button" onClick=${v.openSheet} style="flex: none; height: 52px; border-radius: 999px; border: 2px solid #E8B98A; background: transparent; color: #FBEFE6; font: 600 15px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8B98A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"></path><path d="M3 21v-5h5"></path></svg>
+    Opnieuw trekken
+  </button>
+  <div style="display: flex; justify-content: space-between">
+    <button type="button" onClick=${v.logout} style="height: 44px; padding: 0 4px; border: 0; background: none; color: #D9B8AE; font: 500 13px 'DM Sans', sans-serif; text-decoration: underline; cursor: pointer">Uitloggen</button>
+    <button type="button" onClick=${v.reset} style="height: 44px; padding: 0 4px; border: 0; background: none; color: #D9B8AE; font: 500 13px 'DM Sans', sans-serif; text-decoration: underline; cursor: pointer">Demo opnieuw</button>
+  </div>
+</div>
+${v.sheet ? html`
+  <div style="position: absolute; inset: 0; background: rgba(20,3,7,.78); display: flex; align-items: flex-end; animation: fadein .2s both">
+    <div role="dialog" aria-label="Opnieuw trekken" style="width: 100%; background: #FBEFE6; color: #3A0A14; border-radius: 28px 28px 0 0; padding: 26px 24px 30px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; animation: sheet .35s cubic-bezier(.3,.8,.3,1) both">
+      <h2 style="margin: 0; font-size: 26px; font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em">Opnieuw trekken?</h2>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #6B3A34">${v.picked} gaat terug in de pot. Je krijgt een nieuwe naam uit de namen die nog niemand heeft getrokken.</p>
+      <button type="button" onClick=${v.redraw} style="height: 54px; border: 0; border-radius: 999px; background: #FBEFE6; color: #3A0A14; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; ; margin-top: 8px">Ja, trek opnieuw</button>
+      <button type="button" onClick=${v.closeSheet} style="height: 48px; border: 0; background: transparent; color: #3A0A14; font: 600 15px 'DM Sans', sans-serif; cursor: pointer">Nee, ik houd ${v.picked}</button>
+    </div>
+  </div>
+` : null}
+` : null}
+</div>
+`; }
+  renderVals() {
+    const S = this.state;
+    const me = 'Leonie';
+    const names = ['Benjamin', 'Nikola', 'Leonie', 'Dino', 'Harry', 'Francisco', 'Chaimae', 'Estelle', 'Digna', 'Inez'];
+    // Alleen in de backend: namen die anderen al trokken. In de pot zie je dit niet.
+    const others = ['Dino', 'Harry', 'Inez', 'Estelle'];
+    const pool = names.filter((n) => others.indexOf(n) < 0 && n !== me && n !== S.exclude);
+    const filled = S.vals.filter((v) => v.trim()).length;
+    const canGo = filled >= 5;
+    const steps = [
+      { title: 'Dit is de lootjespot', body: 'Alle 10 namen zitten erin. Wie al door een ander getrokken is, kun je niet krijgen, maar dat zie je niet: het blijft een verrassing.', spot: { t: '108px', l: '73px', w: '244px', h: '294px' } },
+      { title: 'Schud 3 keer', body: 'Tik op de pot om te schudden. Bij de derde keer springt er een lootje uit.', spot: { t: '398px', l: '146px', w: '98px', h: '34px' } },
+      { title: 'Jouw getrokken naam', body: 'Bijvoorbeeld Nikola: je ziet de foto en het verlanglijstje van wie je hebt. Dit blijft staan, elke keer dat je inlogt.', spot: { t: '432px', l: '14px', w: '362px', h: '88px' } },
+      { title: 'Toch iemand anders?', body: 'Met Opnieuw trekken gaat je naam terug in de pot en krijg je een nieuwe uit de ongetrokken namen.', spot: { t: '516px', l: '14px', w: '362px', h: '68px' } }
+    ];
+    const st = steps[S.step];
+    const c = S.count;
+    const shaking = c > 0 && S.phase === 'shake';
+    const ph = S.phase;
+    const up = ph === 'above' || ph === 'float' || ph === 'open';
+    const pos = [[22,272,-8],[90,280,5],[160,270,-4],[40,246,12],[112,252,-6],[176,240,9],[28,220,-14],[96,224,3],[160,212,-10],[70,196,7]];
+    const pal0 = [['#FBEFE6', '#3A0A14'], ['#E8B98A', '#3A0A14'], ['#F2B8B5', '#3A0A14']];
+    const pal = [['linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%)'], ['linear-gradient(174deg, #EDD0A8 0%, #DDB98D 47%, #C29A6C 50%, #E6C69B 53%, #D6AF80 100%)'], ['linear-gradient(174deg, #FBE1DC 0%, #F1C8C1 47%, #D9A9A1 50%, #F7D6D0 53%, #EBC0B8 100%)']];
+    const hints = ['Tik op de pot om te schudden', 'Nog 2 keer schudden…', 'Nog 1 keer!', 'Het deksel gaat eraf…'];
+    const phaseHint = { lift: 'Het deksel gaat eraf…', above: 'Je kijkt in de pot…', float: 'Er zweeft een lootje omhoog…' };
+    const sp = [[-60,136,30,-25,56],[10,138,52,10,60],[70,134,20,30,52],[-30,128,-30,-15,62],[50,126,-40,20,58],[-82,130,-14,35,50],[0,120,4,-5,64],[30,112,62,-30,55],[-50,112,58,15,60],[84,118,-12,-20,54]];
+    const wishList = ['Koptelefoon met noise cancelling', 'Kookboek Ottolenghi Simple', 'Puzzel van 1000 stukjes', 'Thermosfles', 'Planten-hangpot', 'Bordspel Wingspan', 'Geurkaars (houtachtig)', 'Sjaal in donkergroen', 'Etentje-bon', 'Mooi notitieboek'];
+    const picked = S.picked || 'Nikola';
+    return {
+      isLogin: S.screen === 'login', isWelkom: S.screen === 'welkom', isWens: S.screen === 'wens',
+      isTour: S.screen === 'tour', isPot: S.screen === 'pot', isProfiel: S.screen === 'profiel',
+      login: () => this.setState({ screen: S.picked ? 'profiel' : 'welkom' }),
+      toWens: () => this.setState({ screen: 'wens' }),
+      filled, pct: (filled * 10) + '%', wishOpacity: canGo ? '1' : '.45', wishDisabled: canGo ? 'false' : 'true',
+      wishLabel: canGo ? 'Opslaan en verder' : 'Nog minimaal ' + (5 - filled) + (5 - filled === 1 ? ' wens' : ' wensen'),
+      saveWens: () => { if (canGo) this.setState({ screen: 'tour', step: 0 }); },
+      wishes: S.vals.map((v, i) => ({ n: i + 1, v, set: (e) => { const nx = this.state.vals.slice(); nx[i] = e.target.value; this.setState({ vals: nx }); } })),
+      tNum: S.step + 1, tTitle: st.title, tBody: st.body, spot: st.spot, tBtn: S.step === 3 ? 'Aan de slag' : 'Volgende',
+      tNext: () => { if (S.step === 3) this.setState({ screen: 'pot', count: 0, revealed: false, phase: 'shake' }); else this.setState({ step: S.step + 1 }); },
+      tDots: steps.map((_, k) => ({ w: k === S.step ? '22px' : '8px', o: k === S.step ? '1' : '.3' })),
+      anim: shaking ? ((c % 2 ? 'shakeA' : 'shakeB') + (c === 3 ? ' .9s' : ' .6s') + ' ease-in-out') : 'none',
+      dots: [0, 1, 2].map((k) => ({ bg: k < c ? '#E8B98A' : 'transparent' })),
+      hint: phaseHint[ph] || hints[Math.min(c, 3)],
+      isOpen: ph === 'open', notOpen: ph !== 'open', showLot: up,
+      cam: up ? 'translateY(-10px) rotateX(-89deg) scale(1)' : 'translateY(14px) rotateX(-14deg) scale(.9)',
+      lidT: ph === 'shake' ? 'translate3d(0, 0, 0) rotateZ(0deg)' : 'translate3d(150px, -150px, 40px) rotateZ(38deg)',
+      lidO: ph === 'shake' ? '1' : '0',
+      glint: up ? '.25' : '1',
+      lotT: (ph === 'float' || ph === 'open') ? 'translateY(-250px) rotateX(90deg) rotateZ(0deg)' : 'translateY(132px) rotateX(90deg) rotateZ(-24deg)',
+      lotBob: (ph === 'float' || ph === 'open') ? 'lotbob 3s ease-in-out 2s infinite' : 'none',
+      fold: ph === 'open' ? '0deg' : '-178deg',
+      lotShadowO: up ? ((ph === 'float' || ph === 'open') ? '.12' : '.7') : '0',
+      lotShadowS: (ph === 'float' || ph === 'open') ? '.55' : '1',
+      shakePE: ph === 'shake' && c < 3 ? 'auto' : 'none',
+      uiO: up ? '.8' : '1',
+      slips: names.map((n, i) => ({ name: n, bg: pal[i % 3][0], o: (up && n === S.picked) ? '0' : '1',
+        tf: 'translate3d(' + sp[i][0] + 'px,' + sp[i][1] + 'px,' + sp[i][2] + 'px) rotateY(' + sp[i][3] + 'deg) rotateX(' + sp[i][4] + 'deg)',
+        anim: shaking ? ((c % 2 ? 'jiggle' : 'jiggleB') + ' .3s ease-in-out ' + (i % 3) * 0.05 + 's 2') : 'none' })),
+      shake: () => {
+        if (this.state.count >= 3) return;
+        const next = this.state.count + 1;
+        this.setState({ count: next });
+        if (next === 3) {
+          const pick = pool[Math.floor(Math.random() * pool.length)];
+          this.timers.push(setTimeout(() => this.setState({ phase: 'lift', picked: pick, exclude: '' }), 950));
+          this.timers.push(setTimeout(() => this.setState({ phase: 'above' }), 1550));
+          this.timers.push(setTimeout(() => this.setState({ phase: 'float' }), 3500));
+          this.timers.push(setTimeout(() => this.setState({ phase: 'open' }), 5500));
+        }
+      },
+      revealed: S.revealed, picked, initial: picked.charAt(0),
+      toProfiel: () => this.setState({ screen: 'profiel', revealed: false, phase: 'shake', count: 0 }),
+      profWishes: wishList.map((t, i) => ({ n: i + 1, t })),
+      sheet: S.sheet,
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      redraw: () => this.setState({ sheet: false, exclude: S.picked, picked: '', screen: 'pot', count: 0, revealed: false, phase: 'shake' }),
+      logout: () => this.setState({ screen: 'login', sheet: false }),
+      reset: () => { this.timers.forEach(clearTimeout); this.setState(Object.assign({}, this.init)); }
+    };
+  }
+}
+
+render(html`<${App} />`, document.getElementById('app'));
+
+// schaal het 390×844-scherm passend op elk apparaat
+const fit = () => {
+  const el = document.getElementById('app');
+  const k = Math.min(window.innerWidth / 390, window.innerHeight / 844);
+  el.style.transform = 'scale(' + k + ')';
+};
+window.addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

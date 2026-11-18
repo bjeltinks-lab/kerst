@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#22050B">
+<title>Kerst Lootjes</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%81%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&amp;family=DM+Sans:wght@400;500;600&amp;family=Caveat:wght@600&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#16030A}
+body{display:flex;align-items:center;justify-content:center;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{width:390px;height:844px;flex:none;transform-origin:50% 50%;border-radius:36px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+@media (max-width:500px){#app{border-radius:0;box-shadow:none}}
+a{color:#FBEFE6}
+input::placeholder{color:#D9B8AE;opacity:.85}
+input:focus{outline:2px solid #E8B98A;outline-offset:1px}
+button:focus-visible{outline:2px solid #E8B98A;outline-offset:2px}
+button:disabled{cursor:default}
+
+@keyframes pop{0%{opacity:0;transform:translateY(40px) scale(.6) rotate(-6deg)}60%{opacity:1;transform:translateY(-6px) scale(1.06) rotate(1deg)}100%{opacity:1;transform:none}}
+@keyframes fadeup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes shakeA{0%,100%{transform:rotate(0)}15%{transform:rotate(-9deg) translateX(-8px)}30%{transform:rotate(8deg) translateX(8px)}45%{transform:rotate(-7deg)}60%{transform:rotate(6deg)}75%{transform:rotate(-3deg)}}
+@keyframes shakeB{0%,100%{transform:rotate(0)}15%{transform:rotate(9deg) translateX(8px)}30%{transform:rotate(-8deg) translateX(-8px)}45%{transform:rotate(7deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(3deg)}}
+@keyframes jiggle{0%,100%{translate:0 0}25%{translate:2px -6px}50%{translate:-3px 2px}75%{translate:3px -3px}}
+@keyframes jiggleB{0%,100%{translate:0 0}25%{translate:-2px -5px}50%{translate:3px 3px}75%{translate:-3px -2px}}
+@keyframes hint{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.07)}}
+@keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fall{from{transform:translateY(-30px)}to{transform:translateY(880px)}}
+@keyframes swing{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@keyframes lotbob{0%,100%{transform:translate3d(0,0,0) rotateZ(-2deg)}50%{transform:translate3d(0,-10px,0) rotateZ(2deg)}}
+@keyframes cardin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes burst{0%{opacity:0;transform:translate(0,0) rotate(0) scale(.4)}12%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(1)}}
+@keyframes confetti{0%{opacity:0;transform:translate3d(0,-40px,0) rotate(0)}10%{opacity:1}100%{opacity:.9;transform:translate3d(var(--dx),900px,0) rotate(var(--r))}}
+@keyframes glow{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:.8;transform:scale(1.08)}}
+@keyframes toastin{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:none}}
+@keyframes letter{0%{opacity:0;transform:translateY(60px) rotateX(-90deg) scale(.4)}60%{opacity:1;transform:translateY(-8px) rotateX(10deg) scale(1.08)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="config.js"></script>
+<script type="module">
+import { html, render, Component } from 'https://unpkg.com/htm@3.1.1/preact/standalone.module.js';
+
+/* =====================================================================
+   API — Supabase (live) of localStorage (demo-modus)
+   ===================================================================== */
+const CFG = window.KERST_CONFIG || {};
+const LIVE = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+const MIN_WISHES = 5;      // minimaal aantal wensen
+const MAX_WISHES = 10;
+const TOKEN_KEY = 'kerst-token';
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+class ApiError extends Error { constructor(msg, session) { super(msg); this.session = session; } }
+
+async function rpc(fn, args) {
+  let res;
+  try {
+    res = await fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: { apikey: CFG.supabaseAnonKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args)
+    });
+  } catch (e) { throw new ApiError('Geen verbinding. Check je internet en probeer opnieuw.'); }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError((data && data.message) || 'Er ging iets mis, probeer het nog eens.', data && data.hint === 'session');
+  return data;
+}
+
+/* ---- demo-backend: zelfde gedrag als de SQL, maar in localStorage ---- */
+const DEMO_NAMES = ['Benjamin', 'Nikola', 'Leonie', 'Dino', 'Harry', 'Francisco', 'Chaimae', 'Estelle', 'Digna', 'Inez'];
+const DEMO_WISHES = ['Koptelefoon met noise cancelling', 'Kookboek Ottolenghi Simple', 'Puzzel van 1000 stukjes', 'Thermosfles', 'Planten-hangpot', 'Bordspel Wingspan', 'Geurkaars (houtachtig)', 'Sjaal in donkergroen', 'Etentje-bon', 'Mooi notitieboek'];
+const demo = {
+  load() {
+    let db = null;
+    try { db = JSON.parse(store.get('kerst-demo-db')); } catch (e) {}
+    if (!db) {
+      db = { members: {}, draws: {}, sessions: {} };
+      DEMO_NAMES.forEach((n) => { db.members[n] = { name: n, photo: null, wishes: DEMO_WISHES.slice().sort(() => Math.random() - .5), profile_done: true, tour_done: true }; });
+    }
+    return db;
+  },
+  save(db) { store.set('kerst-demo-db', JSON.stringify(db)); },
+  stateFor(db, me) {
+    const d = db.draws[me];
+    const m = db.members[me];
+    return {
+      me: Object.assign({}, m),
+      names: DEMO_NAMES.slice(),
+      draw: d ? { name: d.drawn, photo: db.members[d.drawn].photo, wishes: db.members[d.drawn].wishes, drawn_at: d.at } : null
+    };
+  },
+  who(db, token) { const n = db.sessions[token]; if (!n) throw new ApiError('Je sessie is verlopen, log opnieuw in', true); return n; },
+  pick(db, me, exclude) {
+    const drawn = Object.values(db.draws).map((d) => d.drawn);
+    const left = DEMO_NAMES.filter((n) => n !== me && !db.draws[n]);
+    if (left.length === 1 && drawn.indexOf(left[0]) < 0) return left[0] !== exclude ? left[0] : null;
+    const pool = DEMO_NAMES.filter((n) => n !== me && n !== exclude && drawn.indexOf(n) < 0);
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  },
+  async call(fn, a) {
+    await new Promise((r) => setTimeout(r, 250));
+    const db = this.load();
+    let out;
+    if (fn === 'kerst_login') {
+      const name = DEMO_NAMES.find((n) => n.toLowerCase() === String(a.p_name).trim().toLowerCase());
+      if (!name || !a.p_password) throw new ApiError('Naam of wachtwoord klopt niet');
+      if (!db.members[name].fresh_done) { db.members[name] = { name, photo: null, wishes: [], profile_done: false, tour_done: false, fresh_done: true }; }
+      const token = 'demo-' + Math.random().toString(36).slice(2);
+      db.sessions[token] = name;
+      out = { token, state: this.stateFor(db, name) };
+    } else if (fn === 'kerst_logout') {
+      delete db.sessions[a.p_token]; out = null;
+    } else {
+      const me = this.who(db, a.p_token);
+      if (fn === 'kerst_save_profile') {
+        const m = db.members[me];
+        m.wishes = a.p_wishes.slice(0, 10).map((w) => w.trim().slice(0, 200));
+        if (a.p_photo != null) m.photo = a.p_photo || null;
+        m.profile_done = true;
+      } else if (fn === 'kerst_tour_done') {
+        db.members[me].tour_done = true;
+      } else if (fn === 'kerst_draw') {
+        if (!db.draws[me]) {
+          const p = this.pick(db, me, null);
+          if (!p) throw new ApiError('Er zitten geen namen meer in de pot');
+          db.draws[me] = { drawn: p, at: new Date().toISOString() };
+        }
+      } else if (fn === 'kerst_redraw') {
+        const old = db.draws[me] && db.draws[me].drawn;
+        delete db.draws[me];
+        const p = this.pick(db, me, old);
+        if (!p) throw new ApiError('Er is geen andere naam meer over, je houdt ' + (old || 'je huidige naam'));
+        db.draws[me] = { drawn: p, at: new Date().toISOString() };
+      }
+      out = this.stateFor(db, me);
+    }
+    this.save(db);
+    return out;
+  }
+};
+
+const call = (fn, args) => (LIVE ? rpc(fn, args) : demo.call(fn, args));
+const tok = () => store.get(TOKEN_KEY);
+const api = {
+  login: (name, password) => call('kerst_login', { p_name: name, p_password: password }),
+  logout: () => call('kerst_logout', { p_token: tok() }).catch(() => {}),
+  state: () => call('kerst_state', { p_token: tok() }),
+  saveProfile: (wishes, photo) => call('kerst_save_profile', { p_token: tok(), p_wishes: wishes, p_photo: photo }),
+  tourDone: () => call('kerst_tour_done', { p_token: tok() }),
+  draw: () => call('kerst_draw', { p_token: tok() }),
+  redraw: () => call('kerst_redraw', { p_token: tok() })
+};
+
+/* foto verkleinen tot 320×320 jpeg (± 25 kB) */
+function resizePhoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const S = 320, c = document.createElement('canvas');
+      c.width = c.height = S;
+      const s = Math.min(img.width, img.height);
+      c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, S, S);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Kon deze foto niet openen')); };
+    img.src = url;
+  });
+}
+
+/* =====================================================================
+   Gedeelde stukjes UI
+   ===================================================================== */
+const C = { cream: '#FBEFE6', gold: '#E8B98A', wine: '#3A0A14', rose: '#D9B8AE', line: 'rgba(251,239,230,.18)' };
+const BTN = `height: 54px; border: 0; border-radius: 999px; background: ${C.cream}; color: ${C.wine}; font: 600 16px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px`;
+const EYEBROW = `font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: ${C.gold}`;
+const SERIF = `font-family: Fraunces, serif; font-weight: 500; letter-spacing: -.02em`;
+const ABS = 'position: absolute; left: 0; top: 0';
+
+const Bow = ({ size, anim }) => html`
+  <div aria-hidden="true" style="width: ${size}px; height: ${size}px; ${anim || ''}"><svg width="100%" height="100%" viewBox="0 0 200 200" fill="none"><g style="transform-origin: 100px 100px; animation: swing 4s ease-in-out infinite"><g stroke="${C.gold}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M100 100 C70 56 24 58 30 92 C36 124 78 114 100 100 Z"></path><path d="M100 100 C130 56 176 58 170 92 C164 124 122 114 100 100 Z"></path><path d="M95 105 L68 176"></path><path d="M105 105 L132 176"></path></g><circle cx="100" cy="100" r="12" fill="${C.gold}"></circle></g></svg></div>`;
+
+const Spinner = () => html`<span aria-hidden="true" style="width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite"></span>`;
+
+const Avatar = ({ name, photo, size, font }) => photo
+  ? html`<img src=${photo} alt="Profielfoto van ${name}" style="flex: none; width: ${size}px; height: ${size}px; border-radius: 50%; border: 3px solid ${C.gold}; box-sizing: border-box; object-fit: cover; background: #6B1424" />`
+  : html`<div role="img" aria-label="Profielfoto van ${name}" style="flex: none; width: ${size}px; height: ${size}px; border-radius: 50%; background: #6B1424; color: ${C.gold}; border: 3px solid ${C.gold}; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: ${font}px; ${SERIF}">${(name || '?').charAt(0)}</div>`;
+
+const Snow = () => html`<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden">
+  ${[[18, 5, 9, -1], [62, 3, 12, -6], [108, 6, 10, -3], [150, 3, 8, -5], [196, 4, 11, -2], [238, 6, 13, -8], [284, 3, 9, -4], [330, 5, 10, -7], [368, 4, 12, -9]].map(([l, s, d, o]) =>
+    html`<span style="position: absolute; left: ${l}px; top: 0; width: ${s}px; height: ${s}px; border-radius: 50%; background: ${C.gold}; opacity: .5; animation: fall ${d}s linear ${o}s infinite"></span>`)}
+</div>`;
+
+/* deeltjes-explosie vanuit een punt */
+const BURST_COLORS = ['#E8B98A', '#FBEFE6', '#F2B8B5', '#C9503F', '#FFD58A'];
+const BURST = Array.from({ length: 34 }, (_, i) => {
+  const a = (i / 34) * Math.PI * 2 + (i % 3) * .2, d = 110 + (i * 37) % 120;
+  return { dx: Math.round(Math.cos(a) * d), dy: Math.round(Math.sin(a) * d), r: (i * 97) % 540 - 270, c: BURST_COLORS[i % 5], w: 6 + (i % 3) * 3, h: i % 2 ? 6 : 14, t: (i % 5) * .03 };
+});
+const Burst = ({ x, y, delay }) => html`<div aria-hidden="true" style="position: absolute; left: ${x}px; top: ${y}px; width: 0; height: 0; pointer-events: none">
+  ${BURST.map((p) => html`<span style="position: absolute; left: ${-p.w / 2}px; top: ${-p.h / 2}px; width: ${p.w}px; height: ${p.h}px; border-radius: 2px; background: ${p.c}; --dx: ${p.dx}px; --dy: ${p.dy}px; --r: ${p.r}deg; animation: burst 1.6s cubic-bezier(.1,.8,.3,1) ${delay + p.t}s both"></span>`)}
+</div>`;
+
+const CONFETTI = Array.from({ length: 40 }, (_, i) => ({ l: (i * 53) % 390, dx: ((i * 31) % 120) - 60, r: ((i * 131) % 900) - 450, c: BURST_COLORS[i % 5], w: 6 + (i % 3) * 2, h: i % 2 ? 8 : 14, d: 3.2 + (i % 7) * .45, t: (i % 10) * .18 }));
+const Confetti = () => html`<div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden">
+  ${CONFETTI.map((p) => html`<span style="position: absolute; left: ${p.l}px; top: 0; width: ${p.w}px; height: ${p.h}px; border-radius: 2px; background: ${p.c}; --dx: ${p.dx}px; --r: ${p.r}deg; animation: confetti ${p.d}s cubic-bezier(.3,.2,.6,1) ${p.t}s both"></span>`)}
+</div>`;
+
+/* ---------- de glazen pot (CSS 3D) ---------- */
+const RING = 'border: 1px solid rgba(255,240,228,.2); background: radial-gradient(circle, rgba(255,240,228,0) 84%, rgba(255,240,228,.09) 100%)';
+const NECK = 'border: 1.5px solid rgba(255,240,228,.3)';
+const RINGS = [
+  [128, -170, 'border: 3px solid rgba(255,240,228,.5); background: radial-gradient(circle, rgba(255,240,228,0) 86%, rgba(255,240,228,.14) 100%)'],
+  [134, -164, NECK], [134, -158, NECK], [134, -152, NECK],
+  [128, -146, RING], [128, -140, RING], [154, -135, RING], [178, -130, RING], [202, -125, RING],
+  [222, -120, RING], [238, -115, RING], [250, -110, RING], [258, -105, RING],
+  ...[-100, -90, -70, -50, -30, -10, 10, 30, 50, 70, 90, 110, 130].map((y) => [260, y, RING]),
+  [252, 146, RING],
+  [236, 151, 'border: 2px solid rgba(255,240,228,.35); background: radial-gradient(circle at 45% 40%, rgba(255,240,228,.16), rgba(255,240,228,.05) 70%)']
+];
+const LID = [[-176, 'border: 4px solid #A87444'], [-180, 'border: 4px solid #D8A774'], [-184, 'border: 4px solid #B9834F'], [-188, 'border: 4px solid #E8B98A'], [-192, 'background: radial-gradient(circle at 40% 38%, #FFF0D6, #E3B07C 55%, #A87444 100%); border: 2px solid #C99766']];
+const disc = (size, y, extra) => html`<span style="${ABS}; width: ${size}px; height: ${size}px; margin: ${-size / 2}px 0 0 ${-size / 2}px; border-radius: 50%; box-sizing: border-box; transform: translateY(${y}px) rotateX(90deg); ${extra}"></span>`;
+const JarShadow = () => html`<span style="${ABS}; width: 300px; height: 300px; margin: -150px 0 0 -150px; border-radius: 50%; transform: translateY(162px) rotateX(90deg); background: radial-gradient(circle, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 62%)"></span>`;
+const JarGlass = () => RINGS.map(([s, y, e]) => disc(s, y, e));
+const Lid = () => LID.map(([y, e]) => disc(144, y, e));
+const SLIP_POS = [[-60, 136, 30, -25, 56], [10, 138, 52, 10, 60], [70, 134, 20, 30, 52], [-30, 128, -30, -15, 62], [50, 126, -40, 20, 58], [-82, 130, -14, 35, 50], [0, 120, 4, -5, 64], [30, 112, 62, -30, 55], [-50, 112, 58, 15, 60], [84, 118, -12, -20, 54]];
+const SLIP_BG = ['linear-gradient(174deg, #FFF9F0 0%, #F4E7D6 47%, #DCC7AE 50%, #FBF1E3 53%, #EEDFCB 100%)', 'linear-gradient(174deg, #EDD0A8 0%, #DDB98D 47%, #C29A6C 50%, #E6C69B 53%, #D6AF80 100%)', 'linear-gradient(174deg, #FBE1DC 0%, #F1C8C1 47%, #D9A9A1 50%, #F7D6D0 53%, #EBC0B8 100%)'];
+const slipTf = (i) => { const p = SLIP_POS[i % SLIP_POS.length], k = Math.floor(i / SLIP_POS.length); return `translate3d(${p[0] + k * 14}px,${p[1] - k * 18}px,${p[2]}px) rotateY(${p[3]}deg) rotateX(${p[4]}deg)`; };
+const Slip = ({ name, i, o, anim }) => html`<span style="${ABS}; width: 74px; height: 30px; margin: -15px 0 0 -37px; border-radius: 2px; font-family: Caveat, cursive; font-size: ${name.length > 8 ? 17 : 19}px; font-weight: 600; line-height: 1; color: ${C.wine}; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: opacity .6s ease; transform: ${slipTf(i)}; background: ${SLIP_BG[i % 3]}; opacity: ${o == null ? 1 : o}; animation: ${anim || 'none'}">${name}</span>`;
+const Glints = ({ o }) => html`
+  <span style="${ABS}; width: 13px; height: 210px; margin: -105px 0 0 -6px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.55) 30%, rgba(255,255,255,.18) 75%, rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${o}; transform: translate3d(-74px, 10px, 104px) rotateY(-36deg)"></span>
+  <span style="${ABS}; width: 5px; height: 150px; margin: -75px 0 0 -2px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.35), rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${o}; transform: translate3d(-48px, 20px, 120px) rotateY(-22deg)"></span>
+  <span style="${ABS}; width: 7px; height: 160px; margin: -80px 0 0 -3px; border-radius: 99px; background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.3), rgba(255,255,255,0)); transition: opacity 1.4s ease; opacity: ${o}; transform: translate3d(86px, 20px, 96px) rotateY(42deg)"></span>`;
+
+const Header = ({ me, onMe, right }) => html`
+  <div style="align-self: stretch; display: flex; justify-content: space-between; align-items: center">
+    <span style="font-size: 22px; ${SERIF}">Lootjes</span>
+    ${right || html`<button type="button" onClick=${onMe} aria-label="Mijn verlanglijstje bewerken" style="height: 34px; padding: 0 12px 0 4px; border-radius: 99px; border: 1px solid ${C.line}; background: transparent; color: ${C.cream}; font: 600 12px 'DM Sans', sans-serif; display: flex; align-items: center; gap: 7px; cursor: pointer">
+      <${Avatar} name=${me.name} photo=${me.photo} size=${26} font=${12} />${me.name}
+      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${C.gold}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>
+    </button>`}
+  </div>`;
+
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }); } catch (e) { return ''; } };
+
+/* =====================================================================
+   App
+   ===================================================================== */
+class App extends Component {
+  constructor(p) {
+    super(p);
+    this.timers = [];
+    this.state = {
+      screen: 'boot', data: null, busy: false, toast: '', loginErr: '',
+      name: store.get('kerst-last-name') || '', pass: '',
+      vals: Array(MAX_WISHES).fill(''), photo: null, photoChanged: false, editing: false,
+      step: 0, count: 0, phase: 'shake', picked: '', mode: 'draw', sheet: false, fromLogin: false
+    };
+  }
+
+  componentDidMount() {
+    if (!tok()) return this.setState({ screen: 'login' });
+    api.state().then((data) => this.route(data, false)).catch((e) => this.fail(e, true));
+  }
+  componentWillUnmount() { this.clearTimers(); }
+  clearTimers() { this.timers.forEach(clearTimeout); this.timers = []; }
+  later(ms, fn) { this.timers.push(setTimeout(fn, ms)); }
+
+  toast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this.toastT);
+    this.toastT = setTimeout(() => this.setState({ toast: '' }), 4200);
+  }
+  fail(e, quietToLogin) {
+    if (e && e.session) { store.del(TOKEN_KEY); this.setState({ screen: 'login', busy: false, data: null }); if (!quietToLogin) this.toast(e.message); return; }
+    this.setState({ busy: false, screen: this.state.screen === 'boot' ? 'login' : this.state.screen });
+    this.toast((e && e.message) || 'Er ging iets mis');
+  }
+
+  /* bepaal waar iemand heen moet op basis van de serverstaat */
+  nextScreen(data) {
+    if (!data.me.profile_done) return 'wens';
+    if (!data.me.tour_done) return 'tour';
+    return data.draw ? 'profiel' : 'pot';
+  }
+  route(data, viaLogin) {
+    const wishes = Array(MAX_WISHES).fill('').map((_, i) => data.me.wishes[i] || '');
+    const base = { data, busy: false, vals: wishes, photo: data.me.photo, photoChanged: false, editing: false, sheet: false, count: 0, phase: 'shake', mode: 'draw' };
+    this.setState(Object.assign(base, viaLogin ? { screen: 'welkom', fromLogin: true } : { screen: this.nextScreen(data) }));
+  }
+
+  /* ---------- acties ---------- */
+  login = (e) => {
+    e && e.preventDefault();
+    const { name, pass } = this.state;
+    if (!name.trim() || !pass) return this.setState({ loginErr: 'Vul je naam en wachtwoord in' });
+    this.setState({ busy: true, loginErr: '' });
+    api.login(name, pass).then((r) => {
+      store.set(TOKEN_KEY, r.token);
+      store.set('kerst-last-name', r.state.me.name);
+      this.setState({ pass: '' });
+      this.route(r.state, true);
+    }).catch((err) => this.setState({ busy: false, loginErr: err.message }));
+  };
+  logout = () => {
+    api.logout(); store.del(TOKEN_KEY); this.clearTimers();
+    this.setState({ screen: 'login', data: null, sheet: false, busy: false });
+  };
+  afterWelkom = () => this.setState({ screen: this.nextScreen(this.state.data) });
+  pickPhoto = () => this.fileInput && this.fileInput.click();
+  onPhoto = (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    resizePhoto(f).then((url) => this.setState({ photo: url, photoChanged: true })).catch((err) => this.toast(err.message));
+  };
+  setWish = (i, v) => { const nx = this.state.vals.slice(); nx[i] = v; this.setState({ vals: nx }); };
+  saveWens = () => {
+    const S = this.state;
+    if (S.busy || S.vals.filter((v) => v.trim()).length < MIN_WISHES) return;
+    this.setState({ busy: true });
+    api.saveProfile(S.vals.map((v) => v.trim()).filter(Boolean), S.photoChanged ? (S.photo || '') : null).then((data) => {
+      const wasEditing = S.editing;
+      this.setState({ data, busy: false, photoChanged: false, editing: false, step: 0, screen: wasEditing ? this.nextScreen(data) : (data.me.tour_done ? this.nextScreen(data) : 'tour') });
+      if (wasEditing) this.toast('Je verlanglijstje is opgeslagen');
+    }).catch((e) => this.fail(e));
+  };
+  editWens = () => {
+    const d = this.state.data;
+    this.setState({ screen: 'wens', editing: true, vals: Array(MAX_WISHES).fill('').map((_, i) => d.me.wishes[i] || ''), photo: d.me.photo, photoChanged: false });
+  };
+  cancelEdit = () => this.setState({ screen: this.nextScreen(this.state.data), editing: false });
+  tourNext = () => {
+    if (this.state.step < 3) return this.setState({ step: this.state.step + 1 });
+    this.setState({ busy: true });
+    api.tourDone().then((data) => this.setState({ data, busy: false, screen: data.draw ? 'profiel' : 'pot', count: 0, phase: 'shake', mode: 'draw' })).catch((e) => this.fail(e));
+  };
+
+  shake = () => {
+    const S = this.state;
+    if (S.count >= 3 || S.phase !== 'shake' || S.busy) return;
+    const next = S.count + 1;
+    if (navigator.vibrate) try { navigator.vibrate(next === 3 ? [40, 30, 60] : 35); } catch (e) {}
+    this.setState({ count: next });
+    if (next < 3) return;
+    this.setState({ busy: true });
+    const req = S.mode === 'redraw' ? api.redraw() : api.draw();
+    Promise.all([req, new Promise((r) => setTimeout(r, 950))]).then(([data]) => {
+      this.setState({ data, picked: data.draw.name, phase: 'lift', busy: false });
+      this.later(600, () => this.setState({ phase: 'above' }));
+      this.later(2550, () => this.setState({ phase: 'float' }));
+      this.later(4550, () => this.setState({ phase: 'open' }));
+    }).catch((e) => {
+      this.fail(e);
+      if (!e.session) {
+        // mislukt: oude staat ophalen en terug naar waar je was
+        api.state().then((data) => this.setState({ data, count: 0, phase: 'shake', mode: 'draw', screen: data.draw ? 'profiel' : 'pot' })).catch(() => this.setState({ count: 0 }));
+      }
+    });
+  };
+  toProfiel = () => { this.clearTimers(); this.setState({ screen: 'profiel', phase: 'shake', count: 0, mode: 'draw' }); };
+  redraw = () => this.setState({ sheet: false, screen: 'pot', count: 0, phase: 'shake', mode: 'redraw', picked: '' });
+  cancelRedraw = () => this.setState({ screen: 'profiel', mode: 'draw', count: 0 });
+  resetDemo = () => { store.del('kerst-demo-db'); store.del(TOKEN_KEY); location.reload(); };
+
+  /* ---------- render ---------- */
+  render() {
+    const S = this.state;
+    return html`
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: radial-gradient(120% 75% at 50% 0%, #6B1424 0%, #3A0A14 55%, #22050B 100%); font-family: 'DM Sans', sans-serif; color: ${C.cream}">
+  <${Snow} />
+  ${S.screen === 'boot' ? html`<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: ${C.gold}"><${Bow} size=${90} anim="animation: glow 1.6s ease-in-out infinite" /></div>` : null}
+  ${S.screen === 'login' ? this.renderLogin() : null}
+  ${S.screen === 'welkom' ? this.renderWelkom() : null}
+  ${S.screen === 'wens' ? this.renderWens() : null}
+  ${S.screen === 'tour' ? this.renderTour() : null}
+  ${S.screen === 'pot' ? this.renderPot() : null}
+  ${S.screen === 'profiel' ? this.renderProfiel() : null}
+  ${!LIVE && S.screen !== 'boot' ? html`<div style="position: absolute; left: 50%; top: 14px; transform: translateX(-50%); font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; background: rgba(0,0,0,.35); color: ${C.rose}; pointer-events: none">Demo-modus</div>` : null}
+  ${S.toast ? html`<div role="status" style="position: absolute; left: 20px; right: 20px; top: 40px; z-index: 50; padding: 14px 18px; border-radius: 18px; background: ${C.cream}; color: ${C.wine}; font-size: 14px; font-weight: 600; line-height: 1.4; box-shadow: 0 14px 40px rgba(0,0,0,.4); animation: toastin .3s ease-out both" onClick=${() => this.setState({ toast: '' })}>${S.toast}</div>` : null}
+</div>`;
+  }
+
+  renderLogin() {
+    const S = this.state;
+    const input = `height: 50px; border-radius: 14px; border: 1px solid ${C.line}; background: rgba(0,0,0,.25); color: ${C.cream}; padding: 0 14px; font: 500 16px 'DM Sans', sans-serif; box-sizing: border-box; width: 100%`;
+    return html`
+<div style="position: absolute; inset: 0; padding: 72px 28px 36px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; animation: fadein .4s both">
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center">
+    <${Bow} size=${112} />
+    <div style="${EYEBROW}">Familie · Kerst 2026</div>
+    <h1 style="margin: 0; font-size: 46px; line-height: 1; ${SERIF}">Lootjes <span style="font-style: italic; color: ${C.gold}">trekken</span></h1>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; color: ${C.rose}; max-width: 280px">Log in met je naam en wachtwoord om je lootje te trekken.</p>
+  </div>
+  <form onSubmit=${this.login} style="display: flex; flex-direction: column; gap: 14px; padding: 22px; background: rgba(0,0,0,.22); border: 1px solid ${C.line}; border-radius: 28px">
+    <label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600">Naam
+      <input type="text" name="username" autocomplete="username" autocapitalize="words" value=${S.name} onInput=${(e) => this.setState({ name: e.target.value })} style=${input} /></label>
+    <label style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 600">Wachtwoord
+      <input type="password" name="password" autocomplete="current-password" value=${S.pass} onInput=${(e) => this.setState({ pass: e.target.value })} style=${input} /></label>
+    ${S.loginErr ? html`<div role="alert" style="font-size: 14px; font-weight: 600; color: #FFB4A8; animation: fadein .2s both">${S.loginErr}</div>` : null}
+    <button type="submit" disabled=${S.busy} style="${BTN}; margin-top: 6px">${S.busy ? html`<${Spinner} />` : 'Inloggen'}</button>
+  </form>
+  <p style="margin: auto 0 0; text-align: center; font-size: 13px; color: ${C.rose}">${LIVE ? 'Wachtwoord vergeten? Vraag het aan Benjamin.' : 'Demo-modus: elke naam uit de familie, elk wachtwoord.'}</p>
+</div>`;
+  }
+
+  renderWelkom() {
+    const S = this.state, me = S.data.me, first = !me.profile_done;
+    const letters = me.name.split('');
+    return html`
+<div style="position: absolute; inset: 0; padding: 60px 28px 36px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; text-align: center">
+  <${Confetti} />
+  <div aria-hidden="true" style="position: absolute; left: 50%; top: 170px; width: 340px; height: 340px; margin: -170px 0 0 -170px; border-radius: 50%; background: radial-gradient(circle, rgba(232,185,138,.35) 0%, rgba(232,185,138,0) 65%); animation: glow 3s ease-in-out .6s infinite both"></div>
+  <${Burst} x=${195} y=${170} delay=${0.45} />
+  <${Bow} size=${220} anim="animation: pop .9s cubic-bezier(.2,.9,.3,1.3) .1s both" />
+  <div style="margin-top: 26px; ${EYEBROW}; animation: fadeup .6s ease-out .3s both">Kerst 2026</div>
+  <h1 style="margin: 12px 0 0; font-size: ${me.name.length > 8 ? 60 : 70}px; line-height: .95; ${SERIF}; display: flex; flex-direction: column; align-items: center; perspective: 600px">
+    <span style="animation: pop .8s cubic-bezier(.2,.9,.3,1.4) .5s both">${first ? 'Welkom,' : 'Hoi weer,'}</span>
+    <span style="font-style: italic; color: ${C.gold}; display: flex">${letters.map((l, i) => html`<span style="display: inline-block; animation: letter .7s cubic-bezier(.2,.9,.3,1.3) ${0.8 + i * 0.07}s both">${l}</span>`)}</span>
+  </h1>
+  <${Burst} x=${195} y=${420} delay=${0.9 + letters.length * 0.07} />
+  <p style="margin: 22px 0 0; font-size: 16px; line-height: 1.55; color: ${C.rose}; max-width: 300px; animation: fadeup .6s ease-out 1.5s both">${first
+    ? `Fijn dat je er bent. Zet eerst minimaal ${MIN_WISHES} wensen op je verlanglijstje, dan weet wie jou trekt wat je leuk vindt.`
+    : (S.data.draw ? `Je lootje ligt nog voor je klaar. Benieuwd wat ${S.data.draw.name} wil hebben?` : 'De pot staat klaar. Tijd om te schudden!')}</p>
+  <button type="button" onClick=${this.afterWelkom} style="${BTN}; margin-top: auto; width: 100%; position: relative; animation: fadeup .6s ease-out 1.8s both">${first ? 'Maak mijn verlanglijstje' : 'Verder'}
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+  </button>
+</div>`;
+  }
+
+  renderWens() {
+    const S = this.state;
+    const filled = S.vals.filter((v) => v.trim()).length, canGo = filled >= MIN_WISHES;
+    const label = S.busy ? html`<${Spinner} />` : canGo ? (S.editing ? 'Opslaan' : 'Opslaan en verder') : 'Nog minimaal ' + (MIN_WISHES - filled) + (MIN_WISHES - filled === 1 ? ' wens' : ' wensen');
+    return html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; animation: fadein .35s both">
+  <div style="display: flex; align-items: center; gap: 16px">
+    <button type="button" onClick=${this.pickPhoto} aria-label="Foto kiezen" style="flex: none; position: relative; width: 76px; height: 76px; padding: 0; border-radius: 50%; border: 2px ${S.photo ? 'solid' : 'dashed'} ${C.gold}; background: rgba(0,0,0,.22); color: ${C.gold}; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden">
+      ${S.photo ? html`<img src=${S.photo} alt="" style="width: 100%; height: 100%; object-fit: cover" />` : html`<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>`}
+    </button>
+    <input type="file" accept="image/*" ref=${(el) => (this.fileInput = el)} onChange=${this.onPhoto} style="display: none" />
+    <div style="display: flex; flex-direction: column; gap: 4px; flex: 1">
+      <div style="${EYEBROW}">Jouw profiel</div>
+      <h1 style="margin: 0; font-size: 30px; line-height: 1.05; ${SERIF}">Verlanglijstje</h1>
+      <div style="font-size: 13px; color: ${C.rose}">${S.photo ? 'Tik op je foto om te wijzigen' : 'Tik op de cirkel voor je foto'}</div>
+    </div>
+    ${S.editing ? html`<button type="button" onClick=${this.cancelEdit} aria-label="Terug zonder opslaan" style="flex: none; align-self: flex-start; width: 40px; height: 40px; border-radius: 50%; border: 1px solid ${C.line}; background: transparent; color: ${C.cream}; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>` : null}
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600"><span>Ingevuld · minimaal ${MIN_WISHES}</span><span style="color: ${C.gold}">${filled} / ${MAX_WISHES}</span></div>
+    <div style="height: 6px; border-radius: 99px; background: ${C.line}; overflow: hidden"><div style="height: 100%; border-radius: 99px; background: ${C.cream}; transition: width .3s; width: ${filled * 100 / MAX_WISHES}%"></div></div>
+  </div>
+  <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px">
+    ${S.vals.map((v, i) => html`
+      <label style="flex: none; display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 6px 0 12px; box-sizing: border-box; background: rgba(0,0,0,.22); border: 1px solid ${C.line}; border-radius: 28px">
+        <span style="flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid ${v.trim() ? C.gold : C.line}; background: ${v.trim() ? 'rgba(232,185,138,.18)' : 'transparent'}; color: ${C.gold}; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: background .2s, border-color .2s">${i + 1}</span>
+        <input type="text" value=${v} maxlength="200" onInput=${(e) => this.setWish(i, e.target.value)} placeholder="Wens ${i + 1}" aria-label="Wens ${i + 1}" enterkeyhint="next" style="flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: ${C.cream}; font: 500 16px 'DM Sans', sans-serif; padding: 0 6px" />
+      </label>`)}
+  </div>
+  <button type="button" onClick=${this.saveWens} aria-disabled=${!canGo} style="${BTN}; flex: none; transition: opacity .2s; opacity: ${canGo ? 1 : .45}">${label}</button>
+</div>`;
+  }
+
+  renderTour() {
+    const S = this.state, me = S.data.me;
+    const example = S.data.names.find((n) => n !== me.name) || 'Nikola';
+    const steps = [
+      { title: 'Dit is de lootjespot', body: `Alle ${S.data.names.length} namen zitten erin. Wie al door een ander getrokken is, kun je niet krijgen, maar dat zie je niet: het blijft een verrassing.`, spot: [108, 73, 244, 294] },
+      { title: 'Schud 3 keer', body: 'Tik op de pot om te schudden. Bij de derde keer springt er een lootje uit.', spot: [398, 146, 98, 34] },
+      { title: 'Jouw getrokken naam', body: `Bijvoorbeeld ${example}: je ziet de foto en het verlanglijstje van wie je hebt. Dit blijft staan, elke keer dat je inlogt.`, spot: [432, 14, 362, 88] },
+      { title: 'Toch iemand anders?', body: 'Met Opnieuw trekken gaat je naam terug in de pot en krijg je een nieuwe uit de ongetrokken namen.', spot: [516, 14, 362, 68] }
+    ];
+    const st = steps[S.step], [t, l, w, h] = st.spot;
+    const ease = '.55s cubic-bezier(.4,0,.2,1)';
+    return html`
+<div style="position: absolute; inset: 0; animation: fadein .35s both">
+  <div aria-hidden="true" style="position: absolute; inset: 0">
+    <div style="position: absolute; left: 24px; right: 24px; top: 52px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 22px; ${SERIF}">Lootjes</span><span style="height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid ${C.line}; font-size: 12px; font-weight: 600; display: flex; align-items: center">${me.name}</span></div>
+    <div style="position: absolute; left: 0; top: 0; width: 390px; height: 460px; perspective: 900px; perspective-origin: 50% 55%">
+      <div style="position: absolute; left: 195px; top: 262px; width: 0; height: 0; transform-style: preserve-3d; transform: rotateX(-14deg) scale(.72)">
+        <${JarShadow} /><${JarGlass} />
+        ${S.data.names.map((n, i) => html`<${Slip} name=${n} i=${i} />`)}
+        <${Glints} o=${1} />
+        <div style="${ABS}; transform-style: preserve-3d"><${Lid} /></div>
+      </div>
+    </div>
+    <div style="position: absolute; left: 164px; top: 408px; display: flex; gap: 10px">${[0, 1, 2].map(() => html`<span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid ${C.gold}; box-sizing: border-box"></span>`)}</div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 440px; height: 72px; box-sizing: border-box; padding: 0 14px; display: flex; align-items: center; gap: 12px; border-radius: 28px; background: ${C.cream}; color: ${C.wine}">
+      <${Avatar} name=${example} size=${44} font=${18} />
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8A3B2A">Jij koopt voor</span><span style="font-size: 22px; line-height: 1; ${SERIF}">${example}</span></span>
+      <span style="font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 99px; border: 1px solid currentColor; opacity: .75">Voorbeeld</span>
+    </div>
+    <div style="position: absolute; left: 24px; right: 24px; top: 524px; height: 52px; border-radius: 999px; border: 2px solid ${C.gold}; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600">Opnieuw trekken</div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; border-radius: 22px; box-shadow: 0 0 0 1600px rgba(20,3,7,.78); transition: top ${ease}, left ${ease}, width ${ease}, height ${ease}; top: ${t}px; left: ${l}px; width: ${w}px; height: ${h}px">
+    <span style="position: absolute; inset: 0; border-radius: 22px; border: 2px solid ${C.gold}"></span>
+    <span style="position: absolute; inset: -6px; border-radius: 28px; border: 2px solid ${C.gold}; animation: ring 1.8s ease-out infinite"></span>
+  </div>
+  <div key=${S.step} style="position: absolute; left: 20px; right: 20px; bottom: 22px; background: ${C.cream}; color: ${C.wine}; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.3); animation: cardin .4s ease-out both">
+    <div style="font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #8A3B2A">Stap ${S.step + 1} van 4</div>
+    <h2 style="margin: 0; font-size: 25px; line-height: 1.1; ${SERIF}">${st.title}</h2>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; opacity: .85">${st.body}</p>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+      <div style="display: flex; gap: 6px">${steps.map((_, k) => html`<span style="height: 8px; border-radius: 99px; background: ${C.wine}; transition: width .3s, opacity .3s; width: ${k === S.step ? 22 : 8}px; opacity: ${k === S.step ? 1 : .3}"></span>`)}</div>
+      <div style="display: flex; gap: 4px">
+        ${S.step > 0 ? html`<button type="button" onClick=${() => this.setState({ step: S.step - 1 })} style="height: 48px; padding: 0 14px; border: 0; background: transparent; color: ${C.wine}; font: 600 15px 'DM Sans', sans-serif; cursor: pointer">Terug</button>` : null}
+        <button type="button" onClick=${this.tourNext} disabled=${S.busy} style="height: 48px; min-width: 110px; padding: 0 22px; border: 0; border-radius: 999px; background: ${C.wine}; color: ${C.cream}; font: 600 15px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center">${S.busy ? html`<${Spinner} />` : S.step === 3 ? 'Aan de slag' : 'Volgende'}</button>
+      </div>
+    </div>
+  </div>
+</div>`;
+  }
+
+  renderPot() {
+    const S = this.state, names = S.data.names, ph = S.phase, c = S.count;
+    const shaking = c > 0 && ph === 'shake';
+    const up = ph === 'above' || ph === 'float' || ph === 'open';
+    const floating = ph === 'float' || ph === 'open';
+    const hints = ['Tik op de pot om te schudden', 'Nog 2 keer schudden…', 'Nog 1 keer!', 'Het deksel gaat eraf…'];
+    const phaseHint = { lift: 'Het deksel gaat eraf…', above: 'Je kijkt in de pot…', float: 'Er zweeft een lootje omhoog…' };
+    const hint = phaseHint[ph] || hints[Math.min(c, 3)];
+    const cam = up ? 'translateY(-10px) rotateX(-89deg) scale(1)' : 'translateY(14px) rotateX(-14deg) scale(.9)';
+    const jarAnim = shaking ? ((c % 2 ? 'shakeA' : 'shakeB') + (c === 3 ? ' .9s' : ' .6s') + ' ease-in-out') : 'none';
+    const lotT = floating ? 'translateY(-250px) rotateX(90deg) rotateZ(0deg)' : 'translateY(132px) rotateX(90deg) rotateZ(-24deg)';
+    const picked = S.picked;
+    const lotName = `display: flex; align-items: center; justify-content: center; font-family: Caveat, cursive; font-weight: 600; font-size: ${picked.length > 7 ? 46 : 58}px; color: ${C.wine}`;
+    return html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 28px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; animation: fadein .35s both">
+  <${Header} me=${S.data.me} onMe=${this.editWens} right=${S.mode === 'redraw' && ph === 'shake' && c === 0 ? html`<button type="button" onClick=${this.cancelRedraw} style="height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid ${C.line}; background: transparent; color: ${C.cream}; font: 600 12px 'DM Sans', sans-serif; cursor: pointer">Annuleren</button>` : (ph !== 'shake' || c > 0 ? html`<span></span>` : null)} />
+  <div style="height: 34px; margin-top: 14px; display: flex; align-items: center; justify-content: center; text-align: center">
+    ${ph === 'open' ? html`<div style="${EYEBROW}; animation: fadeup .6s ease-out .5s both">Jij hebt getrokken</div>`
+      : S.mode === 'redraw' ? html`<p style="margin: 0; font-size: 14px; color: ${C.rose}">Opnieuw trekken · je krijgt een <strong style="color: ${C.gold}">nieuwe naam</strong></p>`
+      : html`<p style="margin: 0; font-size: 14px; color: ${C.rose}">Alle <strong style="color: ${C.gold}">${names.length} namen</strong> zitten in de pot</p>`}
+  </div>
+  <div style="position: relative; width: 342px; height: 450px; flex: none; perspective: 900px; perspective-origin: 50% 45%">
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 30px; width: 342px; height: 420px; border-radius: 50%; background: radial-gradient(ellipse, rgba(232,185,138,.16) 0%, rgba(232,185,138,0) 62%)"></div>
+    <div aria-hidden="true" style="position: absolute; left: 171px; top: 240px; width: 0; height: 0; transform-style: preserve-3d; transition: transform 2.1s cubic-bezier(.65,0,.3,1); transform: ${cam}">
+      <div style="${ABS}; transform-style: preserve-3d; transform-origin: 0 150px; animation: ${jarAnim}">
+        <${JarShadow} /><${JarGlass} />
+        ${names.map((n, i) => html`<${Slip} name=${n} i=${i} o=${up && n === picked ? 0 : 1} anim=${shaking ? ((c % 2 ? 'jiggle' : 'jiggleB') + ' .3s ease-in-out ' + (i % 3) * 0.05 + 's 2') : 'none'} />`)}
+        <span style="${ABS}; width: 110px; height: 40px; margin: -20px 0 0 -55px; border-radius: 50%; background: rgba(0,0,0,.6); filter: blur(8px); transition: opacity 1.8s ease, transform 1.8s ease; opacity: ${up ? (floating ? .12 : .7) : 0}; transform: translateY(149px) rotateX(90deg) scale(${floating ? .55 : 1})"></span>
+        ${up ? html`
+          <div style="${ABS}; transform-style: preserve-3d; transition: transform 2s cubic-bezier(.3,.7,.2,1); transform: ${lotT}">
+            <div style="${ABS}; transform-style: preserve-3d; animation: ${floating ? 'lotbob 3s ease-in-out 2s infinite' : 'none'}">
+              <div style="position: absolute; left: -95px; top: 0; width: 190px; height: 58px; transform-style: preserve-3d">
+                <div style="position: absolute; inset: 0; overflow: hidden; border-radius: 0 0 3px 3px; background: linear-gradient(180deg, #FFF9F0 0%, #F6EADB 100%); box-shadow: 0 20px 34px rgba(0,0,0,.5)">
+                  <div style="position: absolute; left: 0; top: -58px; width: 190px; height: 116px; ${lotName}">${picked}</div>
+                  <span style="position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(180deg, rgba(120,80,50,.22), rgba(120,80,50,0))"></span>
+                </div>
+              </div>
+              <div style="position: absolute; left: -95px; top: -58px; width: 190px; height: 58px; transform-style: preserve-3d; transform-origin: 50% 100%; transition: transform 1.1s cubic-bezier(.3,1.25,.4,1); transform: rotateX(${ph === 'open' ? 0 : -178}deg)">
+                <div style="position: absolute; inset: 0; overflow: hidden; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #FFF9F0 0%, #F6EADB 100%); backface-visibility: hidden; -webkit-backface-visibility: hidden">
+                  <div style="position: absolute; left: 0; top: 0; width: 190px; height: 116px; ${lotName}">${picked}</div>
+                  <span style="position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: linear-gradient(0deg, rgba(120,80,50,.18), rgba(120,80,50,0))"></span>
+                </div>
+                <div style="position: absolute; inset: 0; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #F3E6D5 0%, #E9D9C4 100%); transform: rotateX(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden"></div>
+              </div>
+            </div>
+          </div>` : null}
+        <${Glints} o=${up ? .25 : 1} />
+        <div style="${ABS}; transform-style: preserve-3d; transition: transform 1s cubic-bezier(.5,0,.3,1), opacity .9s ease .2s; transform: ${ph === 'shake' ? 'translate3d(0,0,0) rotateZ(0deg)' : 'translate3d(150px, -150px, 40px) rotateZ(38deg)'}; opacity: ${ph === 'shake' ? 1 : 0}"><${Lid} /></div>
+      </div>
+    </div>
+    ${ph === 'open' ? html`<${Burst} x=${171} y=${170} delay=${0.35} />` : null}
+    <button type="button" aria-label="Schud de pot" onClick=${this.shake} style="position: absolute; left: 41px; top: 20px; width: 260px; height: 420px; padding: 0; border: 0; border-radius: 40px; background: transparent; cursor: pointer; pointer-events: ${ph === 'shake' && c < 3 ? 'auto' : 'none'}"></button>
+  </div>
+  ${ph !== 'open' ? html`
+    <div style="display: flex; flex-direction: column; align-items: center; transition: opacity .6s; opacity: ${up ? .8 : 1}">
+      <div style="display: flex; gap: 12px">${[0, 1, 2].map((k) => html`<span style="width: 16px; height: 16px; border-radius: 50%; border: 2px solid ${C.gold}; box-sizing: border-box; transition: background .2s; background: ${k < c ? C.gold : 'transparent'}"></span>`)}</div>
+      <p role="status" style="margin: 12px 0 0; font-size: 16px; font-weight: 600; text-align: center; animation: hint 1.6s ease-in-out infinite">${hint}</p>
+    </div>` : html`
+    <button type="button" onClick=${this.toProfiel} style="${BTN}; margin-top: auto; width: 100%; animation: fadeup .6s ease-out 1s both">Bekijk verlanglijstje van ${picked}</button>`}
+</div>`;
+  }
+
+  renderProfiel() {
+    const S = this.state, d = S.data.draw;
+    if (!d) return null;
+    const wishes = (d.wishes || []).filter(Boolean);
+    return html`
+<div style="position: absolute; inset: 0; padding: 52px 24px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; animation: fadein .35s both">
+  <${Header} me=${S.data.me} onMe=${this.editWens} />
+  <div style="border-radius: 28px; padding: 20px; display: flex; align-items: center; gap: 16px; background: ${C.cream}; color: ${C.wine}; animation: cardin .5s ease-out both">
+    <${Avatar} name=${d.name} photo=${d.photo} size=${84} font=${36} />
+    <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+      <span style="font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #8A3B2A">Jij koopt voor</span>
+      <span style="font-size: ${d.name.length > 8 ? 32 : 38}px; line-height: 1; ${SERIF}">${d.name}</span>
+      <span style="font-size: 13px; opacity: .75; display: flex; align-items: center; gap: 5px">
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        Getrokken op ${fmtDate(d.drawn_at)}</span>
+    </div>
+  </div>
+  <h2 style="margin: 4px 0 0; font-size: 14px; font-weight: 600; color: ${C.rose}">Verlanglijstje van ${d.name}</h2>
+  ${wishes.length ? html`
+  <ol style="flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px">
+    ${wishes.map((t, i) => html`
+      <li style="flex: none; display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 12px; box-sizing: border-box; font-size: 15px; line-height: 1.35; background: rgba(0,0,0,.22); border: 1px solid ${C.line}; border-radius: 28px; overflow-wrap: anywhere; animation: cardin .4s ease-out ${0.1 + i * 0.04}s both">
+        <span style="flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1px solid ${C.line}; color: ${C.gold}; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">${i + 1}</span>${t}
+      </li>`)}
+  </ol>` : html`
+  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 0 20px; color: ${C.rose}">
+    <${Bow} size=${70} />
+    <p style="margin: 0; font-size: 15px; line-height: 1.5">${d.name} heeft nog geen verlanglijstje gemaakt. Kom later nog eens kijken!</p>
+  </div>`}
+  <button type="button" onClick=${() => this.setState({ sheet: true })} style="flex: none; height: 52px; border-radius: 999px; border: 2px solid ${C.gold}; background: transparent; color: ${C.cream}; font: 600 15px 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px">
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${C.gold}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"></path><path d="M3 21v-5h5"></path></svg>
+    Opnieuw trekken
+  </button>
+  <div style="display: flex; justify-content: space-between">
+    <button type="button" onClick=${this.logout} style="height: 44px; padding: 0 4px; border: 0; background: none; color: ${C.rose}; font: 500 13px 'DM Sans', sans-serif; text-decoration: underline; cursor: pointer">Uitloggen</button>
+    ${!LIVE ? html`<button type="button" onClick=${this.resetDemo} style="height: 44px; padding: 0 4px; border: 0; background: none; color: ${C.rose}; font: 500 13px 'DM Sans', sans-serif; text-decoration: underline; cursor: pointer">Demo opnieuw</button>` : null}
+  </div>
+</div>
+${S.sheet ? html`
+  <div onClick=${(e) => { if (e.target === e.currentTarget) this.setState({ sheet: false }); }} style="position: absolute; inset: 0; background: rgba(20,3,7,.78); display: flex; align-items: flex-end; animation: fadein .2s both">
+    <div role="dialog" aria-label="Opnieuw trekken" style="width: 100%; background: ${C.cream}; color: ${C.wine}; border-radius: 28px 28px 0 0; padding: 26px 24px 30px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; animation: sheet .35s cubic-bezier(.3,.8,.3,1) both">
+      <h2 style="margin: 0; font-size: 26px; ${SERIF}">Opnieuw trekken?</h2>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #6B3A34">${d.name} gaat terug in de pot. Je krijgt een nieuwe naam uit de namen die nog niemand heeft getrokken. Dit kun je niet ongedaan maken.</p>
+      <button type="button" onClick=${this.redraw} style="${BTN}; margin-top: 8px; background: ${C.wine}; color: ${C.cream}">Ja, trek opnieuw</button>
+      <button type="button" onClick=${() => this.setState({ sheet: false })} style="height: 48px; border: 0; background: transparent; color: ${C.wine}; font: 600 15px 'DM Sans', sans-serif; cursor: pointer">Nee, ik houd ${d.name}</button>
+    </div>
+  </div>` : null}`;
+  }
+}
+
+render(html`<${App} />`, document.getElementById('app'));
+
+/* schaal het 390×844-scherm passend op elk apparaat.
+   Niet herschalen terwijl het toetsenbord open is (input heeft focus). */
+const fit = () => {
+  const a = document.activeElement;
+  if (a && a.tagName === 'INPUT' && window.innerHeight < (fit.h || 0)) return;
+  fit.h = window.innerHeight;
+  const k = Math.min(window.innerWidth / 390, window.innerHeight / 844);
+  document.getElementById('app').style.transform = 'scale(' + k + ')';
+};
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => setTimeout(fit, 250));
+fit();
+</script>
+</body>
+</html>
