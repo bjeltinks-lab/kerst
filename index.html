@@ -52,34 +52,159 @@ import { html, render, Component } from 'https://unpkg.com/htm@3.1.1/preact/stan
    API — Supabase (live) of localStorage (demo-modus)
    ===================================================================== */
 const CFG = window.KERST_CONFIG || {};
-const LIVE = !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+const LIVE = !!CFG.dataRepo;
+const BRANCH = CFG.branch || 'main';
 const MIN_WISHES = 5;      // minimaal aantal wensen
 const MAX_WISHES = 10;
-const TOKEN_KEY = 'kerst-token';
+const TOKEN_KEY = 'kerst-sessie';
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   del(k) { try { localStorage.removeItem(k); } catch (e) {} }
 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class ApiError extends Error { constructor(msg, session) { super(msg); this.session = session; } }
 
-async function rpc(fn, args) {
-  let res;
-  try {
-    res = await fetch(CFG.supabaseUrl.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, {
-      method: 'POST',
-      headers: { apikey: CFG.supabaseAnonKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(args)
-    });
-  } catch (e) { throw new ApiError('Geen verbinding. Check je internet en probeer opnieuw.'); }
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError((data && data.message) || 'Er ging iets mis, probeer het nog eens.', data && data.hint === 'session');
-  return data;
+/* Kiest een willekeurige naam voor `me` uit de ongetrokken namen.
+   draws = { trekker: { drawn, at } }. Voorkomt dat de laatste trekker
+   alleen zichzelf overhoudt. Geeft null als er niets mogelijk is. */
+function pickName(names, draws, me, exclude) {
+  const taken = Object.values(draws).map((d) => d.drawn);
+  const left = names.filter((n) => n !== me && !draws[n]);
+  if (left.length === 1 && taken.indexOf(left[0]) < 0) return left[0] !== exclude ? left[0] : null;
+  const pool = names.filter((n) => n !== me && n !== exclude && taken.indexOf(n) < 0);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+const emptyMember = (name) => ({ name, photo: null, wishes: [], profile_done: false, tour_done: false });
+
+/* ---------------- GitHub-backend ---------------- */
+const utf8ToB64 = (str) => { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+const b64ToUtf8 = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
+const b64Bytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+let USERS = null;   // users.json: { iterations, users: { Naam: { salt, iv, ct } } }
+async function loadUsers() {
+  if (USERS) return USERS;
+  const r = await fetch('users.json', { cache: 'no-store' }).catch(() => null);
+  if (!r || !r.ok) throw new ApiError('Kon de accounts niet laden (users.json ontbreekt?)');
+  USERS = await r.json();
+  return USERS;
+}
+const allNames = () => Object.keys(USERS.users);
+
+async function unlockToken(name, password) {
+  const u = USERS.users[name];
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64Bytes(u.salt), iterations: USERS.iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64Bytes(u.iv) }, key, b64Bytes(u.ct));
+  return new TextDecoder().decode(pt);
 }
 
-/* ---- demo-backend: zelfde gedrag als de SQL, maar in localStorage ---- */
+function session() {
+  try { const s = JSON.parse(store.get(TOKEN_KEY)); if (s && s.name && s.token) return s; } catch (e) {}
+  throw new ApiError('Log opnieuw in', true);
+}
+
+async function gh(method, path, body) {
+  const s = session();
+  let r;
+  try {
+    r = await fetch('https://api.github.com/repos/' + CFG.dataRepo + '/contents/' + path + (method === 'GET' ? '?ref=' + BRANCH : ''), {
+      method, cache: 'no-store',
+      headers: { Authorization: 'Bearer ' + s.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch (e) { throw new ApiError('Geen verbinding. Check je internet en probeer opnieuw.'); }
+  if (r.status === 401) throw new ApiError('De toegangssleutel werkt niet meer. Vraag Benjamin om hulp.', true);
+  return r;
+}
+async function ghGet(path) {
+  const r = await gh('GET', path);
+  if (r.status === 404) return { data: null, sha: null };
+  if (!r.ok) throw new ApiError('Kon de gegevens niet ophalen (' + r.status + ')');
+  const j = await r.json();
+  return { data: JSON.parse(b64ToUtf8(j.content)), sha: j.sha };
+}
+async function ghPut(path, data, sha, message) {
+  const r = await gh('PUT', path, { message, content: utf8ToB64(JSON.stringify(data, null, 1)), branch: BRANCH, ...(sha ? { sha } : {}) });
+  if (r.status === 409 || r.status === 422) { const e = new Error('conflict'); e.conflict = true; throw e; }
+  if (!r.ok) throw new ApiError('Opslaan mislukt (' + r.status + ')');
+}
+/* lees-wijzig-schrijf met automatisch opnieuw proberen als iemand anders tegelijk schreef */
+async function ghUpdate(path, fallback, change, message) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const { data, sha } = await ghGet(path);
+    const next = change(data || fallback());
+    if (next === undefined) return data || fallback();  // niks te doen
+    try { await ghPut(path, next, sha, message); return next; }
+    catch (e) { if (!e.conflict) throw e; await sleep(300 + Math.random() * 900); }
+  }
+  throw new ApiError('Het is even druk, probeer het nog eens');
+}
+
+const memberPath = (n) => 'members/' + encodeURIComponent(n) + '.json';
+async function getMember(n) { const { data } = await ghGet(memberPath(n)); return Object.assign(emptyMember(n), data || {}, { name: n }); }
+
+async function stateFor(me, knownDraws, knownMe) {
+  const [m, draws] = await Promise.all([knownMe || getMember(me), knownDraws || ghGet('draws.json').then((r) => (r.data && r.data.draws) || {})]);
+  const d = draws[me];
+  let draw = null;
+  if (d) { const o = await getMember(d.drawn); draw = { name: d.drawn, photo: o.photo, wishes: o.wishes, drawn_at: d.at }; }
+  return { me: m, names: allNames(), draw };
+}
+
+async function updateMe(change) {
+  const me = session().name;
+  const m = await ghUpdate(memberPath(me), () => emptyMember(me), (m) => { change(m); return m; }, 'profiel ' + me);
+  return stateFor(me, null, Object.assign(emptyMember(me), m));
+}
+
+async function doDraw(redraw) {
+  const me = session().name;
+  await loadUsers();
+  let fail = null;
+  const result = await ghUpdate('draws.json', () => ({ draws: {} }), (file) => {
+    const draws = Object.assign({}, file.draws);
+    if (!redraw && draws[me]) return undefined;           // al getrokken: niks veranderen
+    const old = draws[me] && draws[me].drawn;
+    delete draws[me];                                     // oude naam terug in de pot
+    const p = pickName(allNames(), draws, me, redraw ? old : null);
+    if (!p) { fail = redraw && old ? 'Er is geen andere naam meer over, je houdt ' + old : 'Er zitten geen namen meer in de pot'; return undefined; }
+    draws[me] = { drawn: p, at: new Date().toISOString() };
+    return { draws };
+  }, 'trekking');
+  if (fail) throw new ApiError(fail);
+  return stateFor(me, result.draws);
+}
+
+const github = {
+  async login(name, password) {
+    await loadUsers();
+    const real = allNames().find((n) => n.toLowerCase() === String(name).trim().toLowerCase());
+    if (!real || !password) throw new ApiError('Naam of wachtwoord klopt niet');
+    let token;
+    try { token = await unlockToken(real, password); } catch (e) { throw new ApiError('Naam of wachtwoord klopt niet'); }
+    const sess = JSON.stringify({ name: real, token });
+    store.set(TOKEN_KEY, sess);
+    return { token: sess, state: await stateFor(real) };
+  },
+  async logout() {},
+  async state() { await loadUsers(); return stateFor(session().name); },
+  saveProfile(wishes, photo) {
+    return updateMe((m) => {
+      m.wishes = wishes.slice(0, MAX_WISHES).map((w) => w.trim().slice(0, 200));
+      if (photo != null) m.photo = photo || null;
+      m.profile_done = true;
+    });
+  },
+  tourDone() { return updateMe((m) => { m.tour_done = true; }); },
+  draw() { return doDraw(false); },
+  redraw() { return doDraw(true); }
+};
+
+/* ---------------- demo-backend (localStorage) ---------------- */
 const DEMO_NAMES = ['Benjamin', 'Nikola', 'Leonie', 'Dino', 'Harry', 'Francisco', 'Chaimae', 'Estelle', 'Digna', 'Inez'];
 const DEMO_WISHES = ['Koptelefoon met noise cancelling', 'Kookboek Ottolenghi Simple', 'Puzzel van 1000 stukjes', 'Thermosfles', 'Planten-hangpot', 'Bordspel Wingspan', 'Geurkaars (houtachtig)', 'Sjaal in donkergroen', 'Etentje-bon', 'Mooi notitieboek'];
 const demo = {
@@ -87,82 +212,53 @@ const demo = {
     let db = null;
     try { db = JSON.parse(store.get('kerst-demo-db')); } catch (e) {}
     if (!db) {
-      db = { members: {}, draws: {}, sessions: {} };
-      DEMO_NAMES.forEach((n) => { db.members[n] = { name: n, photo: null, wishes: DEMO_WISHES.slice().sort(() => Math.random() - .5), profile_done: true, tour_done: true }; });
+      db = { members: {}, draws: {} };
+      DEMO_NAMES.forEach((n) => { db.members[n] = Object.assign(emptyMember(n), { wishes: DEMO_WISHES.slice().sort(() => Math.random() - .5), profile_done: true, tour_done: true }); });
     }
     return db;
   },
   save(db) { store.set('kerst-demo-db', JSON.stringify(db)); },
   stateFor(db, me) {
     const d = db.draws[me];
-    const m = db.members[me];
-    return {
-      me: Object.assign({}, m),
-      names: DEMO_NAMES.slice(),
-      draw: d ? { name: d.drawn, photo: db.members[d.drawn].photo, wishes: db.members[d.drawn].wishes, drawn_at: d.at } : null
-    };
+    return { me: Object.assign({}, db.members[me]), names: DEMO_NAMES.slice(), draw: d ? { name: d.drawn, photo: db.members[d.drawn].photo, wishes: db.members[d.drawn].wishes, drawn_at: d.at } : null };
   },
-  who(db, token) { const n = db.sessions[token]; if (!n) throw new ApiError('Je sessie is verlopen, log opnieuw in', true); return n; },
-  pick(db, me, exclude) {
-    const drawn = Object.values(db.draws).map((d) => d.drawn);
-    const left = DEMO_NAMES.filter((n) => n !== me && !db.draws[n]);
-    if (left.length === 1 && drawn.indexOf(left[0]) < 0) return left[0] !== exclude ? left[0] : null;
-    const pool = DEMO_NAMES.filter((n) => n !== me && n !== exclude && drawn.indexOf(n) < 0);
-    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-  },
-  async call(fn, a) {
-    await new Promise((r) => setTimeout(r, 250));
+  async run(fn) {
+    await sleep(250);
     const db = this.load();
-    let out;
-    if (fn === 'kerst_login') {
-      const name = DEMO_NAMES.find((n) => n.toLowerCase() === String(a.p_name).trim().toLowerCase());
-      if (!name || !a.p_password) throw new ApiError('Naam of wachtwoord klopt niet');
-      if (!db.members[name].fresh_done) { db.members[name] = { name, photo: null, wishes: [], profile_done: false, tour_done: false, fresh_done: true }; }
-      const token = 'demo-' + Math.random().toString(36).slice(2);
-      db.sessions[token] = name;
-      out = { token, state: this.stateFor(db, name) };
-    } else if (fn === 'kerst_logout') {
-      delete db.sessions[a.p_token]; out = null;
-    } else {
-      const me = this.who(db, a.p_token);
-      if (fn === 'kerst_save_profile') {
-        const m = db.members[me];
-        m.wishes = a.p_wishes.slice(0, 10).map((w) => w.trim().slice(0, 200));
-        if (a.p_photo != null) m.photo = a.p_photo || null;
-        m.profile_done = true;
-      } else if (fn === 'kerst_tour_done') {
-        db.members[me].tour_done = true;
-      } else if (fn === 'kerst_draw') {
-        if (!db.draws[me]) {
-          const p = this.pick(db, me, null);
-          if (!p) throw new ApiError('Er zitten geen namen meer in de pot');
-          db.draws[me] = { drawn: p, at: new Date().toISOString() };
-        }
-      } else if (fn === 'kerst_redraw') {
-        const old = db.draws[me] && db.draws[me].drawn;
-        delete db.draws[me];
-        const p = this.pick(db, me, old);
-        if (!p) throw new ApiError('Er is geen andere naam meer over, je houdt ' + (old || 'je huidige naam'));
-        db.draws[me] = { drawn: p, at: new Date().toISOString() };
-      }
-      out = this.stateFor(db, me);
-    }
+    const me = session().name;
+    const err = fn(db, me);
+    if (err) throw new ApiError(err);
     this.save(db);
-    return out;
+    return this.stateFor(db, me);
+  },
+  async login(name, password) {
+    await sleep(250);
+    const real = DEMO_NAMES.find((n) => n.toLowerCase() === String(name).trim().toLowerCase());
+    if (!real || !password) throw new ApiError('Naam of wachtwoord klopt niet');
+    const db = this.load();
+    if (!db.members[real].fresh) db.members[real] = Object.assign(emptyMember(real), { fresh: true });
+    this.save(db);
+    const sess = JSON.stringify({ name: real, token: 'demo' });
+    store.set(TOKEN_KEY, sess);
+    return { token: sess, state: this.stateFor(db, real) };
+  },
+  async logout() {},
+  state() { return this.run(() => null); },
+  saveProfile(wishes, photo) { return this.run((db, me) => { const m = db.members[me]; m.wishes = wishes.slice(0, 10); if (photo != null) m.photo = photo || null; m.profile_done = true; }); },
+  tourDone() { return this.run((db, me) => { db.members[me].tour_done = true; }); },
+  draw() { return this.run((db, me) => { if (db.draws[me]) return; const p = pickName(DEMO_NAMES, db.draws, me, null); if (!p) return 'Er zitten geen namen meer in de pot'; db.draws[me] = { drawn: p, at: new Date().toISOString() }; }); },
+  redraw() {
+    return this.run((db, me) => {
+      const old = db.draws[me] && db.draws[me].drawn;
+      const rest = Object.assign({}, db.draws); delete rest[me];
+      const p = pickName(DEMO_NAMES, rest, me, old);
+      if (!p) return 'Er is geen andere naam meer over, je houdt ' + (old || 'je huidige naam');
+      db.draws[me] = { drawn: p, at: new Date().toISOString() };
+    });
   }
 };
 
-const call = (fn, args) => (LIVE ? rpc(fn, args) : demo.call(fn, args));
-const tok = () => store.get(TOKEN_KEY);
-const api = {
-  login: (name, password) => call('kerst_login', { p_name: name, p_password: password }),
-  logout: () => call('kerst_logout', { p_token: tok() }).catch(() => {}),
-  state: () => call('kerst_state', { p_token: tok() }),
-  saveProfile: (wishes, photo) => call('kerst_save_profile', { p_token: tok(), p_wishes: wishes, p_photo: photo }),
-  tourDone: () => call('kerst_tour_done', { p_token: tok() }),
-  draw: () => call('kerst_draw', { p_token: tok() }),
-  redraw: () => call('kerst_redraw', { p_token: tok() })
-};
+const api = LIVE ? github : demo;
 
 /* foto verkleinen tot 320×320 jpeg (± 25 kB) */
 function resizePhoto(file) {
@@ -273,7 +369,7 @@ class App extends Component {
   }
 
   componentDidMount() {
-    if (!tok()) return this.setState({ screen: 'login' });
+    if (!store.get(TOKEN_KEY)) return this.setState({ screen: 'login' });
     api.state().then((data) => this.route(data, false)).catch((e) => this.fail(e, true));
   }
   componentWillUnmount() { this.clearTimers(); }
@@ -310,14 +406,13 @@ class App extends Component {
     if (!name.trim() || !pass) return this.setState({ loginErr: 'Vul je naam en wachtwoord in' });
     this.setState({ busy: true, loginErr: '' });
     api.login(name, pass).then((r) => {
-      store.set(TOKEN_KEY, r.token);
       store.set('kerst-last-name', r.state.me.name);
       this.setState({ pass: '' });
       this.route(r.state, true);
     }).catch((err) => this.setState({ busy: false, loginErr: err.message }));
   };
   logout = () => {
-    api.logout(); store.del(TOKEN_KEY); this.clearTimers();
+    store.del(TOKEN_KEY); this.clearTimers();
     this.setState({ screen: 'login', data: null, sheet: false, busy: false });
   };
   afterWelkom = () => this.setState({ screen: this.nextScreen(this.state.data) });

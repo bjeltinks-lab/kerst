@@ -1,65 +1,51 @@
 # Kerst Lootjes 🎁
 
-Lootjes trekken voor de familie. Statische site (GitHub Pages) + Supabase (gratis database).
+Lootjes trekken voor de familie, volledig op GitHub:
+
+- **`kerst`** (deze repo, openbaar): de website via GitHub Pages.
+- **`kerst-data`** (privé repo): de gegevens: `draws.json` (wie heeft wie) en `members/<Naam>.json` (verlanglijstje + foto).
 
 | Bestand | Wat |
 |---|---|
 | `index.html` | De hele app |
-| `config.js` | Supabase-URL en key. Leeg = demo-modus |
-| `supabase/setup.sql` | Tabellen + functies (veilig om te committen) |
-| `supabase/wachtwoorden.sql` | Familieleden + wachtwoorden. **Niet committen** (staat in `.gitignore`) |
+| `config.js` | Naam van de data-repo. Leeg = demo-modus |
+| `users.json` | Per persoon de GitHub-token, versleuteld met diens wachtwoord |
+| `tools/maak-accounts.mjs` | Maakt `users.json` en `wachtwoorden.txt` |
+| `wachtwoorden.txt` | Wachtwoorden per persoon. **Niet committen** (staat in `.gitignore`) |
 | `kerst.html` | Je oorspronkelijke demo |
 
-## Online zetten
+## Eenmalig instellen
 
-### 1. Supabase (± 5 min)
-1. Maak een gratis account op https://supabase.com en een nieuw project (regio: Frankfurt/EU).
-2. Ga naar **SQL Editor** → plak de inhoud van `supabase/setup.sql` → **Run**.
-3. Plak daarna `supabase/wachtwoorden.sql` → **Run**. Bovenin dat bestand staan de wachtwoorden per persoon.
-4. Ga naar **Project Settings → API** en kopieer de **Project URL** en de **anon / publishable key**.
-5. Zet ze in `config.js`.
+1. **Data-repo:** maak op https://github.com/new een **privé** repo `kerst-data` en vink **Add a README** aan.
+2. **Token:** ga naar https://github.com/settings/personal-access-tokens/new
+   - Expiration: bijvoorbeeld eind januari 2027
+   - Repository access: **Only select repositories → kerst-data**
+   - Permissions → Repository → **Contents: Read and write**
+   - Generate, en kopieer de token (`github_pat_...`)
+3. **Accounts maken:**
+   ```bash
+   cd ~/Desktop/kerst
+   node tools/maak-accounts.mjs      # plak de token als erom gevraagd wordt
+   git add users.json && git commit -m "accounts" && git push
+   ```
+   De wachtwoorden staan daarna in `wachtwoorden.txt`.
+4. **Pages:** in de repo `kerst` ga je naar **Settings → Pages → Branch: main / (root) → Save**.
+   De site komt op https://bjeltinks-lab.github.io/kerst/
 
-### 2. GitHub Pages
-```bash
-git init && git add . && git commit -m "Kerst lootjes"
-git branch -M main
-git remote add origin https://github.com/<jouw-naam>/kerst.git
-git push -u origin main
-```
-Daarna op GitHub: **Settings → Pages → Branch: main / (root) → Save**.
-De site komt op `https://<jouw-naam>.github.io/kerst/`.
-
-> Check vóór het pushen met `git status` dat `supabase/wachtwoorden.sql` er **niet** tussen staat.
+Opnieuw draaien met een nieuwe token houdt dezelfde wachtwoorden en laat de trekkingen staan.
 
 ## Hoe het werkt
-- De browser kan de tabellen niet lezen. Hij kan alleen de `kerst_*` functies aanroepen, en die controleren je inlog-token. Niemand kan dus via de browser zien wie wie heeft.
-- Trekken gebeurt op de server, één persoon tegelijk (lock). Twee mensen kunnen nooit dezelfde naam krijgen.
-- De server voorkomt dat de laatste persoon alleen zichzelf nog kan trekken.
-- **Opnieuw trekken:** je oude naam gaat terug in de pot en je krijgt een andere naam uit de ongetrokken namen. Is er geen andere naam meer over, dan houd je je oude naam en krijg je een melding.
-- Profielfoto's worden in de browser verkleind (320×320) en in de database opgeslagen.
+- **Inloggen:** de browser probeert met je wachtwoord jouw stukje uit `users.json` te ontsleutelen (PBKDF2 + AES-GCM). Lukt dat, dan heb je de token en kan de app in `kerst-data` lezen en schrijven. Een fout wachtwoord ontsleutelt niets.
+- **Tegelijk trekken:** elke schrijfactie stuurt de versie mee die de app gelezen heeft. Heeft iemand anders intussen geschreven, dan weigert GitHub. De app leest dan opnieuw en kiest opnieuw. Twee mensen kunnen dus nooit dezelfde naam krijgen. Getest met 10 mensen tegelijk.
+- De laatste persoon kan nooit alleen zichzelf overhouden.
+- **Opnieuw trekken:** je oude naam gaat terug in de pot en je krijgt een andere. Is er geen andere naam meer over, dan houd je je oude naam.
 - Minimaal aantal wensen: `MIN_WISHES` bovenin het script in `index.html` (nu 5 van de 10).
 
-## Handige SQL (Supabase → SQL Editor)
-```sql
--- Hoeveel mensen hebben al getrokken? (zonder spoilers)
-select count(*) from draws;
+## Beheer (in de repo `kerst-data` op github.com)
+- **Wie heeft wie (spoiler!):** open `draws.json`.
+- **Iemand opnieuw laten trekken:** bewerk `draws.json` en haal diens regel weg.
+- **Alles resetten:** zet `draws.json` op `{"draws": {}}`.
+- **Iemand uitsluiten:** maak een nieuwe token en draai `maak-accounts.mjs` opnieuw. De oude token trek je in op GitHub.
 
--- Wie heeft wie? (SPOILER!)
-select drawer, drawn, drawn_at from draws order by drawn_at;
-
--- Iemand opnieuw laten beginnen met trekken
-delete from draws where drawer = 'Dino';
-
--- Alles resetten (alle trekkingen weg; profielen blijven)
-delete from draws;
-
--- Eén wachtwoord wijzigen
-update members set pass_hash = extensions.crypt('nieuw-wachtwoord', extensions.gen_salt('bf')) where name = 'Dino';
-
--- Iedereen uitloggen
-delete from sessions;
-```
-
-## Let op
-- Een gratis Supabase-project **pauzeert na 7 dagen zonder verkeer**. Open het dashboard vlak voordat je de link naar de familie stuurt, of herstart het daar met één klik.
-- Lokaal testen: zet `config.js` leeg en open `index.html` via een lokale server (`python3 -m http.server`). In demo-modus werkt elke familienaam met elk wachtwoord.
+## Eerlijk is eerlijk
+Iedereen die inlogt heeft technisch gezien de sleutel tot `kerst-data`. Een familielid dat handig is met ontwikkelaarstools zou dus kunnen spieken of sjoemelen. Voor normaal gebruik zie je niets van de anderen.
